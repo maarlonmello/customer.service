@@ -350,6 +350,26 @@
     white-space:nowrap;
   }
 
+
+  .role-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:3px 8px;border:1px solid var(--border);border-radius:999px;
+    font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--text-dim);background:rgba(255,255,255,.03);
+  }
+  .role-badge.admin{color:var(--accent);border-color:rgba(237,138,43,.45);background:rgba(237,138,43,.08);}
+  .admin-lock{opacity:.62;cursor:not-allowed!important;}
+  .audit-list{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow-y:auto;}
+  .audit-item{background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:9px 12px;font-size:12px;}
+  .audit-main{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
+  .audit-action{color:var(--text);font-weight:600;line-height:1.35;}
+  .audit-time{font-family:'JetBrains Mono',monospace;color:var(--text-dim);font-size:10.5px;white-space:nowrap;}
+  .audit-meta{margin-top:4px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.35;}
+  .history-item{gap:14px;align-items:flex-start;}
+  .history-item .history-main{display:flex;flex-direction:column;gap:3px;}
+  .history-item .history-date{color:var(--text);font-weight:700;}
+  .history-item .history-meta{font-size:10.5px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+
 </style>
 </head>
 <body>
@@ -395,6 +415,7 @@
       <div>
         <div class="datebox" id="dateBox"></div>
         <div class="user-box">
+          <span class="role-badge" id="roleBadge">Usuário</span>
           <span class="user-email" id="userEmail"></span>
           <button class="btn ghost small" id="logoutBtn" type="button">Sair</button>
         </div>
@@ -433,6 +454,11 @@
     <div class="history-list" id="historyList"></div>
   </details>
 
+  <details style="margin-top:12px;">
+    <summary>Auditoria de alterações</summary>
+    <div class="audit-list" id="auditList"></div>
+  </details>
+
 </div>
 
 </div>
@@ -454,7 +480,13 @@ import {
   doc,
   getDoc,
   setDoc,
-  onSnapshot
+  onSnapshot,
+  addDoc,
+  collection,
+  query,
+  orderBy,
+  limit,
+  serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -469,6 +501,19 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
+
+// Administradores do painel. Para adicionar outro administrador, inclua o e-mail nesta lista.
+const ADMIN_EMAILS = [
+  'marlon.rodrigues@polistampo.com.br'
+];
+
+function currentEmail(){
+  return (auth.currentUser && auth.currentUser.email ? auth.currentUser.email : '').toLowerCase();
+}
+
+function isAdmin(){
+  return ADMIN_EMAILS.includes(currentEmail());
+}
 
 (function(){
   const DEFAULT_ANALISTAS = ['Analista 1','Analista 2','Analista 3','Analista 4','Analista 5','Analista 6','Analista 7','Analista 8'];
@@ -488,6 +533,57 @@ const db = getFirestore(firebaseApp);
   }
   function setSaveStatus(msg){
     document.getElementById('saveStatus').textContent = msg;
+  }
+
+  const auditTimers = new Map();
+
+  async function writeAudit(action, details='', category='geral'){
+    if(!auth.currentUser) return;
+    try{
+      await addDoc(collection(db, 'auditLogs'), {
+        action,
+        details,
+        category,
+        userEmail: auth.currentUser.email || '',
+        userUid: auth.currentUser.uid || '',
+        role: isAdmin() ? 'Administrador' : 'Usuário',
+        meetingDate: todayKey(),
+        createdAt: serverTimestamp()
+      });
+    }catch(e){
+      console.warn('audit write failed', e);
+    }
+  }
+
+  function scheduleAudit(key, action, details='', category='geral', delay=900){
+    clearTimeout(auditTimers.get(key));
+    auditTimers.set(key, setTimeout(()=>{
+      writeAudit(action, details, category);
+      auditTimers.delete(key);
+    }, delay));
+  }
+
+  function formatAuditTime(ts){
+    if(!ts || !ts.toDate) return 'agora';
+    return ts.toDate().toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }
+
+  function renderAudit(items){
+    const list = document.getElementById('auditList');
+    if(!list) return;
+    if(!items || items.length===0){
+      list.innerHTML = '<div class="empty-hint">Nenhuma alteração registrada ainda.</div>';
+      return;
+    }
+    list.innerHTML = items.map(a=>`
+      <div class="audit-item">
+        <div class="audit-main">
+          <div class="audit-action">${escapeHtml(a.action || 'Alteração')}</div>
+          <div class="audit-time">${escapeHtml(formatAuditTime(a.createdAt))}</div>
+        </div>
+        <div class="audit-meta">${escapeHtml(a.userEmail || 'usuário')} · ${escapeHtml(a.role || 'Usuário')}${a.details ? ' · '+escapeHtml(a.details) : ''}</div>
+      </div>
+    `).join('');
   }
 
   // ---------- date header ----------
@@ -619,6 +715,11 @@ const db = getFirestore(firebaseApp);
       history = incoming;
       renderHistory();
     }));
+
+    const auditQuery = query(collection(db, 'auditLogs'), orderBy('createdAt','desc'), limit(40));
+    realtimeUnsubs.push(onSnapshot(auditQuery, snap=>{
+      renderAudit(snap.docs.map(d=>d.data()));
+    }, err=>console.warn('audit listener failed', err)));
   }
 
   // ---------- state ----------
@@ -708,172 +809,6 @@ const db = getFirestore(firebaseApp);
   }
 
   // ---------- history ----------
-  async function loadHistory(){
-    return (await storageGet('history', true)) || [];
-  }
-  async function saveHistory(){
-    await storageSet('history', history, true);
-  }
-
-  // ---------- render: analistas grid ----------
-  function renderAnalistas(){
-    const grid = document.getElementById('analistasGrid');
-    grid.innerHTML = '';
-    roster.analistas.forEach((name, idx)=>{
-      const m = dayData.members[name] || {prioridade:'',bloqueado:false,bloqueio:''};
-      const card = document.createElement('div');
-      card.className = 'card' + (m.bloqueado ? ' blocked':'');
-      card.innerHTML = `
-        <div class="card-head">
-          <input class="name-input" value="${escapeAttr(name)}" data-idx="${idx}" data-role="analista-name">
-          <div class="status-light ${m.bloqueado?'blocked':''}" data-idx="${idx}" data-role="toggle-block" title="Marcar bloqueio"></div>
-        </div>
-        <textarea class="prio-field" rows="2" placeholder="Prioridade de hoje..." data-name="${escapeAttr(name)}" data-role="prioridade">${escapeHtml(m.prioridade)}</textarea>
-        <textarea class="block-field ${m.bloqueado?'show':''}" rows="2" placeholder="Qual o bloqueio? O que precisa para destravar?" data-name="${escapeAttr(name)}" data-role="bloqueio-desc">${escapeHtml(m.bloqueio)}</textarea>
-      `;
-      grid.appendChild(card);
-    });
-
-    grid.querySelectorAll('[data-role="analista-name"]').forEach(el=>{
-      el.addEventListener('change', async (e)=>{
-        const idx = +e.target.dataset.idx;
-        const oldName = roster.analistas[idx];
-        const newName = e.target.value.trim() || oldName;
-        if(newName === oldName) return;
-        roster.analistas[idx] = newName;
-        dayData.members[newName] = dayData.members[oldName] || {prioridade:'',bloqueado:false,bloqueio:''};
-        delete dayData.members[oldName];
-        await saveRoster();
-        scheduleSave();
-        renderAnalistas();
-        renderOwnerSelect();
-      });
-    });
-    grid.querySelectorAll('[data-role="toggle-block"]').forEach(el=>{
-      el.addEventListener('click', (e)=>{
-        const idx = +e.target.dataset.idx;
-        const name = roster.analistas[idx];
-        dayData.members[name].bloqueado = !dayData.members[name].bloqueado;
-        scheduleSave();
-        renderAnalistas();
-      });
-    });
-    grid.querySelectorAll('[data-role="prioridade"]').forEach(el=>{
-      el.addEventListener('input', (e)=>{
-        dayData.members[e.target.dataset.name].prioridade = e.target.value;
-        scheduleSave();
-      });
-    });
-    grid.querySelectorAll('[data-role="bloqueio-desc"]').forEach(el=>{
-      el.addEventListener('input', (e)=>{
-        dayData.members[e.target.dataset.name].bloqueio = e.target.value;
-        scheduleSave();
-      });
-    });
-  }
-
-  // ---------- render: EDI card ----------
-  function renderEdi(){
-    const grid = document.getElementById('ediGrid');
-    grid.innerHTML = `
-      <div class="card edi-card">
-        <div class="card-head">
-          <div>
-            <span class="edi-tag">Recepção &amp; tratamento de EDI</span><br>
-            <input class="name-input" id="ediName" value="${escapeAttr(roster.edi)}" style="font-size:15px;">
-          </div>
-          <input type="number" id="ediRecebidos" placeholder="EDIs hoje" style="max-width:110px;" value="${escapeAttr(dayData.edi.recebidos)}">
-        </div>
-        <div class="edi-sub-grid">
-          <div class="edi-sub">
-            <label>Demandas p/ PCP</label>
-            <textarea rows="3" id="ediPcp" placeholder="Pendências enviadas ao PCP...">${escapeHtml(dayData.edi.pcp)}</textarea>
-          </div>
-          <div class="edi-sub">
-            <label>Demandas p/ Expedição</label>
-            <textarea rows="3" id="ediExp" placeholder="Pendências enviadas à Expedição...">${escapeHtml(dayData.edi.expedicao)}</textarea>
-          </div>
-          <div class="edi-sub">
-            <label>Demandas p/ Atendimento</label>
-            <textarea rows="3" id="ediAtend" placeholder="Pontos para os analistas de atendimento...">${escapeHtml(dayData.edi.atendimento)}</textarea>
-          </div>
-        </div>
-      </div>
-    `;
-    document.getElementById('ediName').addEventListener('change', async (e)=>{
-      roster.edi = e.target.value.trim() || roster.edi;
-      await saveRoster();
-      renderOwnerSelect();
-    });
-    document.getElementById('ediRecebidos').addEventListener('input', e=>{ dayData.edi.recebidos = e.target.value; scheduleSave(); });
-    document.getElementById('ediPcp').addEventListener('input', e=>{ dayData.edi.pcp = e.target.value; scheduleSave(); });
-    document.getElementById('ediExp').addEventListener('input', e=>{ dayData.edi.expedicao = e.target.value; scheduleSave(); });
-    document.getElementById('ediAtend').addEventListener('input', e=>{ dayData.edi.atendimento = e.target.value; scheduleSave(); });
-  }
-
-  // ---------- render: pendências ----------
-  function renderOwnerSelect(){
-    const sel = document.getElementById('newPendOwner');
-    sel.innerHTML = '<option value="">Sem responsável</option>' +
-      [...roster.analistas, roster.edi].map(n=>`<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join('');
-  }
-
-  function renderPendencias(){
-    const list = document.getElementById('pendList');
-    const open = pendencias.filter(p=>!p.resolvido);
-    const resolved = pendencias.filter(p=>p.resolvido);
-    const ordered = [...open, ...resolved];
-    if(ordered.length === 0){
-      list.innerHTML = '<div class="empty-hint">Nenhuma pendência em aberto. Bom sinal.</div>';
-      return;
-    }
-    list.innerHTML = ordered.map(p=>`
-      <div class="pend-item ${p.resolvido?'resolved':''}">
-        <div class="pend-check" data-id="${p.id}">${p.resolvido?'✓':''}</div>
-        <div class="pend-body">
-          <div class="pend-text">${escapeHtml(p.texto)}</div>
-          <div class="pend-meta">${p.responsavel ? escapeHtml(p.responsavel)+' · ' : ''}desde ${p.criadoEm}</div>
-        </div>
-        <button class="pend-del" data-id="${p.id}" title="Remover">✕</button>
-      </div>
-    `).join('');
-
-    list.querySelectorAll('.pend-check').forEach(el=>{
-      el.addEventListener('click', async ()=>{
-        const p = pendencias.find(x=>x.id===el.dataset.id);
-        p.resolvido = !p.resolvido;
-        await savePendencias();
-        renderPendencias();
-      });
-    });
-    list.querySelectorAll('.pend-del').forEach(el=>{
-      el.addEventListener('click', async ()=>{
-        pendencias = pendencias.filter(x=>x.id!==el.dataset.id);
-        await savePendencias();
-        renderPendencias();
-      });
-    });
-  }
-
-  document.getElementById('addPendBtn').addEventListener('click', async ()=>{
-    const input = document.getElementById('newPendText');
-    const owner = document.getElementById('newPendOwner');
-    const texto = input.value.trim();
-    if(!texto) return;
-    pendencias.unshift({
-      id: 'p_'+Date.now(),
-      texto,
-      responsavel: owner.value,
-      criadoEm: new Date().toLocaleDateString('pt-BR'),
-      resolvido: false
-    });
-    input.value = '';
-    await savePendencias();
-    renderPendencias();
-    showToast('Pendência adicionada');
-  });
-
-  // ---------- history ----------
   function renderHistory(){
     const list = document.getElementById('historyList');
     if(history.length === 0){
@@ -881,18 +816,41 @@ const db = getFirestore(firebaseApp);
       return;
     }
     list.innerHTML = history.slice().reverse().map(h=>`
-      <div class="history-item"><span>${h.date}</span><span>${h.bloqueios||0} bloqueio(s) registrado(s)</span></div>
+      <div class="history-item">
+        <div class="history-main">
+          <span class="history-date">${escapeHtml(h.date || '')}</span>
+          <span class="history-meta">${h.closedBy ? 'Encerrada por '+escapeHtml(h.closedBy) : 'Responsável não registrado'}${h.closedAt ? ' · '+escapeHtml(h.closedAt) : ''}</span>
+        </div>
+        <span>${h.bloqueios||0} bloqueio(s) · ${h.pendenciasAbertas ?? '-'} pendência(s) aberta(s)</span>
+      </div>
     `).join('');
   }
 
   // ---------- close meeting ----------
   document.getElementById('closeMeetingBtn').addEventListener('click', async ()=>{
+    if(!isAdmin()){
+      showToast('Somente administrador pode encerrar a reunião');
+      return;
+    }
     await saveDayData();
     const bloqueios = Object.values(dayData.members).filter(m=>m.bloqueado).length;
-    if(!history.find(h=>h.date===todayKey())){
-      history.push({ date: todayKey(), bloqueios });
-      await saveHistory();
+    const pendenciasAbertas = pendencias.filter(p=>!p.resolvido).length;
+    const agora = new Date();
+    const existente = history.find(h=>h.date===todayKey());
+    const registro = {
+      date: todayKey(),
+      bloqueios,
+      pendenciasAbertas,
+      closedBy: auth.currentUser ? auth.currentUser.email : '',
+      closedAt: agora.toLocaleString('pt-BR')
+    };
+    if(existente){
+      Object.assign(existente, registro);
+    }else{
+      history.push(registro);
     }
+    await saveHistory();
+    await writeAudit('Reunião encerrada', `${bloqueios} bloqueio(s) · ${pendenciasAbertas} pendência(s) aberta(s)`, 'admin');
     renderHistory();
     showToast('Reunião de hoje encerrada e registrada ✓');
   });
@@ -926,7 +884,18 @@ const db = getFirestore(firebaseApp);
   const loginError = document.getElementById('loginError');
   const loginStatus = document.getElementById('loginStatus');
   const userEmail = document.getElementById('userEmail');
+  const roleBadge = document.getElementById('roleBadge');
   const logoutBtn = document.getElementById('logoutBtn');
+
+  function applyRoleUI(){
+    const admin = isAdmin();
+    roleBadge.textContent = admin ? 'Administrador' : 'Usuário';
+    roleBadge.classList.toggle('admin', admin);
+    const closeBtn = document.getElementById('closeMeetingBtn');
+    closeBtn.disabled = !admin;
+    closeBtn.classList.toggle('admin-lock', !admin);
+    closeBtn.title = admin ? 'Encerrar e registrar a reunião' : 'Somente administrador pode encerrar a reunião';
+  }
 
   function friendlyAuthError(error){
     const code = error && error.code ? error.code : '';
@@ -980,6 +949,8 @@ const db = getFirestore(firebaseApp);
       appShell.classList.add('auth-hidden');
       authScreen.classList.remove('hidden');
       userEmail.textContent = '';
+      roleBadge.textContent = 'Usuário';
+      roleBadge.classList.remove('admin');
       setSaveStatus('aguardando login');
       return;
     }
@@ -987,6 +958,7 @@ const db = getFirestore(firebaseApp);
     authScreen.classList.add('hidden');
     appShell.classList.remove('auth-hidden');
     userEmail.textContent = user.email || 'usuário autenticado';
+    applyRoleUI();
 
     if(!initializedForUser){
       initializedForUser = true;
