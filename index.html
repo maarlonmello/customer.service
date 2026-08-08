@@ -782,8 +782,13 @@ function isAdmin(){
     let d = await storageGet('daily:'+todayKey(), true);
     if(!d){ d = blankDay(); }
     else{
-      // ensure any newly-added roster members exist in today's data
-      roster.analistas.forEach(n=>{ if(!d.members[n]) d.members[n] = {prioridade:'',bloqueado:false,bloqueio:''}; });
+      d.members = d.members || {};
+      d.edi = d.edi || { recebidos:'', pcp:'', expedicao:'', atendimento:'' };
+      roster.analistas.forEach(n=>{
+        if(!d.members[n]){
+          d.members[n] = {prioridade:'',bloqueado:false,bloqueio:''};
+        }
+      });
     }
     return d;
   }
@@ -807,6 +812,351 @@ function isAdmin(){
   async function savePendencias(){
     await storageSet('pendencias', pendencias, true);
   }
+
+  // ---------- history storage ----------
+  async function loadHistory(){
+    return (await storageGet('history', true)) || [];
+  }
+
+  async function saveHistory(){
+    await storageSet('history', history, true);
+  }
+
+  // ---------- render: analistas grid ----------
+  function renderAnalistas(){
+    const grid = document.getElementById('analistasGrid');
+    grid.innerHTML = '';
+
+    roster.analistas.forEach((name, idx)=>{
+      const m = dayData.members[name] || {prioridade:'',bloqueado:false,bloqueio:''};
+      const card = document.createElement('div');
+      card.className = 'card' + (m.bloqueado ? ' blocked':'');
+
+      card.innerHTML = `
+        <div class="card-head">
+          <input
+            class="name-input"
+            value="${escapeAttr(name)}"
+            data-idx="${idx}"
+            data-role="analista-name"
+            ${isAdmin() ? '' : 'readonly'}
+            title="${isAdmin() ? 'Administrador pode alterar o nome' : 'Somente administrador pode alterar o nome'}"
+          >
+          <div
+            class="status-light ${m.bloqueado?'blocked':''}"
+            data-idx="${idx}"
+            data-role="toggle-block"
+            title="Marcar/desmarcar bloqueio"
+          ></div>
+        </div>
+
+        <textarea
+          class="prio-field"
+          rows="2"
+          placeholder="Prioridade de hoje..."
+          data-name="${escapeAttr(name)}"
+          data-role="prioridade"
+        >${escapeHtml(m.prioridade)}</textarea>
+
+        <textarea
+          class="block-field ${m.bloqueado?'show':''}"
+          rows="2"
+          placeholder="Qual o bloqueio? O que precisa para destravar?"
+          data-name="${escapeAttr(name)}"
+          data-role="bloqueio-desc"
+        >${escapeHtml(m.bloqueio)}</textarea>
+      `;
+
+      grid.appendChild(card);
+    });
+
+    grid.querySelectorAll('[data-role="analista-name"]').forEach(el=>{
+      el.addEventListener('change', async (e)=>{
+        if(!isAdmin()){
+          renderAnalistas();
+          showToast('Somente administrador pode alterar os nomes');
+          return;
+        }
+
+        const idx = +e.target.dataset.idx;
+        const oldName = roster.analistas[idx];
+        const newName = e.target.value.trim() || oldName;
+
+        if(newName === oldName) return;
+
+        roster.analistas[idx] = newName;
+        dayData.members[newName] =
+          dayData.members[oldName] || {prioridade:'',bloqueado:false,bloqueio:''};
+
+        delete dayData.members[oldName];
+
+        await saveRoster();
+        await saveDayData();
+        await writeAudit(
+          'Nome de analista alterado',
+          `${oldName} → ${newName}`,
+          'admin'
+        );
+
+        renderAnalistas();
+        renderOwnerSelect();
+      });
+    });
+
+    grid.querySelectorAll('[data-role="toggle-block"]').forEach(el=>{
+      el.addEventListener('click', (e)=>{
+        const idx = +e.target.dataset.idx;
+        const name = roster.analistas[idx];
+
+        dayData.members[name].bloqueado =
+          !dayData.members[name].bloqueado;
+
+        scheduleSave();
+        scheduleAudit(
+          `block:${name}`,
+          dayData.members[name].bloqueado ? 'Bloqueio marcado' : 'Bloqueio removido',
+          name,
+          'bloqueio'
+        );
+
+        renderAnalistas();
+      });
+    });
+
+    grid.querySelectorAll('[data-role="prioridade"]').forEach(el=>{
+      el.addEventListener('input', (e)=>{
+        const name = e.target.dataset.name;
+        dayData.members[name].prioridade = e.target.value;
+        scheduleSave();
+        scheduleAudit(
+          `priority:${name}`,
+          'Prioridade atualizada',
+          name,
+          'prioridade'
+        );
+      });
+    });
+
+    grid.querySelectorAll('[data-role="bloqueio-desc"]').forEach(el=>{
+      el.addEventListener('input', (e)=>{
+        const name = e.target.dataset.name;
+        dayData.members[name].bloqueio = e.target.value;
+        scheduleSave();
+        scheduleAudit(
+          `blockdesc:${name}`,
+          'Descrição de bloqueio atualizada',
+          name,
+          'bloqueio'
+        );
+      });
+    });
+  }
+
+  // ---------- render: EDI card ----------
+  function renderEdi(){
+    const grid = document.getElementById('ediGrid');
+
+    grid.innerHTML = `
+      <div class="card edi-card">
+        <div class="card-head">
+          <div>
+            <span class="edi-tag">Recepção &amp; tratamento de EDI</span><br>
+            <input
+              class="name-input"
+              id="ediName"
+              value="${escapeAttr(roster.edi)}"
+              style="font-size:15px;"
+              ${isAdmin() ? '' : 'readonly'}
+              title="${isAdmin() ? 'Administrador pode alterar o nome' : 'Somente administrador pode alterar o nome'}"
+            >
+          </div>
+
+          <input
+            type="number"
+            id="ediRecebidos"
+            placeholder="EDIs hoje"
+            style="max-width:110px;"
+            value="${escapeAttr(dayData.edi.recebidos)}"
+          >
+        </div>
+
+        <div class="edi-sub-grid">
+          <div class="edi-sub">
+            <label>Demandas p/ PCP</label>
+            <textarea rows="3" id="ediPcp" placeholder="Pendências enviadas ao PCP...">${escapeHtml(dayData.edi.pcp)}</textarea>
+          </div>
+
+          <div class="edi-sub">
+            <label>Demandas p/ Expedição</label>
+            <textarea rows="3" id="ediExp" placeholder="Pendências enviadas à Expedição...">${escapeHtml(dayData.edi.expedicao)}</textarea>
+          </div>
+
+          <div class="edi-sub">
+            <label>Demandas p/ Atendimento</label>
+            <textarea rows="3" id="ediAtend" placeholder="Pontos para os analistas de atendimento...">${escapeHtml(dayData.edi.atendimento)}</textarea>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('ediName').addEventListener('change', async (e)=>{
+      if(!isAdmin()){
+        renderEdi();
+        showToast('Somente administrador pode alterar o nome do EDI');
+        return;
+      }
+
+      const oldName = roster.edi;
+      roster.edi = e.target.value.trim() || roster.edi;
+
+      await saveRoster();
+      await writeAudit(
+        'Nome do responsável EDI alterado',
+        `${oldName} → ${roster.edi}`,
+        'admin'
+      );
+
+      renderOwnerSelect();
+    });
+
+    document.getElementById('ediRecebidos').addEventListener('input', e=>{
+      dayData.edi.recebidos = e.target.value;
+      scheduleSave();
+      scheduleAudit('edi:recebidos','Quantidade de EDIs atualizada',e.target.value,'edi');
+    });
+
+    document.getElementById('ediPcp').addEventListener('input', e=>{
+      dayData.edi.pcp = e.target.value;
+      scheduleSave();
+      scheduleAudit('edi:pcp','Demandas PCP atualizadas','','edi');
+    });
+
+    document.getElementById('ediExp').addEventListener('input', e=>{
+      dayData.edi.expedicao = e.target.value;
+      scheduleSave();
+      scheduleAudit('edi:exp','Demandas Expedição atualizadas','','edi');
+    });
+
+    document.getElementById('ediAtend').addEventListener('input', e=>{
+      dayData.edi.atendimento = e.target.value;
+      scheduleSave();
+      scheduleAudit('edi:atend','Demandas Atendimento atualizadas','','edi');
+    });
+  }
+
+  // ---------- render: pendências ----------
+  function renderOwnerSelect(){
+    const sel = document.getElementById('newPendOwner');
+
+    sel.innerHTML =
+      '<option value="">Sem responsável</option>' +
+      [...roster.analistas, roster.edi]
+        .map(n=>`<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`)
+        .join('');
+  }
+
+  function renderPendencias(){
+    const list = document.getElementById('pendList');
+    const open = pendencias.filter(p=>!p.resolvido);
+    const resolved = pendencias.filter(p=>p.resolvido);
+    const ordered = [...open, ...resolved];
+
+    if(ordered.length === 0){
+      list.innerHTML =
+        '<div class="empty-hint">Nenhuma pendência em aberto. Bom sinal.</div>';
+      return;
+    }
+
+    list.innerHTML = ordered.map(p=>`
+      <div class="pend-item ${p.resolvido?'resolved':''}">
+        <div class="pend-check" data-id="${p.id}">${p.resolvido?'✓':''}</div>
+
+        <div class="pend-body">
+          <div class="pend-text">${escapeHtml(p.texto)}</div>
+          <div class="pend-meta">
+            ${p.responsavel ? escapeHtml(p.responsavel)+' · ' : ''}
+            desde ${escapeHtml(p.criadoEm || '')}
+            ${p.criadoPor ? ' · por '+escapeHtml(p.criadoPor) : ''}
+          </div>
+        </div>
+
+        ${isAdmin()
+          ? `<button class="pend-del" data-id="${p.id}" title="Remover">✕</button>`
+          : ''
+        }
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.pend-check').forEach(el=>{
+      el.addEventListener('click', async ()=>{
+        const p = pendencias.find(x=>x.id===el.dataset.id);
+        if(!p) return;
+
+        p.resolvido = !p.resolvido;
+        p.atualizadoPor = auth.currentUser ? auth.currentUser.email : '';
+        p.atualizadoEm = new Date().toLocaleString('pt-BR');
+
+        await savePendencias();
+        await writeAudit(
+          p.resolvido ? 'Pendência concluída' : 'Pendência reaberta',
+          p.texto,
+          'pendencia'
+        );
+
+        renderPendencias();
+      });
+    });
+
+    list.querySelectorAll('.pend-del').forEach(el=>{
+      el.addEventListener('click', async ()=>{
+        if(!isAdmin()){
+          showToast('Somente administrador pode excluir pendências');
+          return;
+        }
+
+        const p = pendencias.find(x=>x.id===el.dataset.id);
+        pendencias = pendencias.filter(x=>x.id!==el.dataset.id);
+
+        await savePendencias();
+        await writeAudit(
+          'Pendência excluída',
+          p ? p.texto : el.dataset.id,
+          'admin'
+        );
+
+        renderPendencias();
+      });
+    });
+  }
+
+  document.getElementById('addPendBtn').addEventListener('click', async ()=>{
+    const input = document.getElementById('newPendText');
+    const owner = document.getElementById('newPendOwner');
+    const texto = input.value.trim();
+
+    if(!texto) return;
+
+    pendencias.unshift({
+      id: 'p_'+Date.now(),
+      texto,
+      responsavel: owner.value,
+      criadoEm: new Date().toLocaleDateString('pt-BR'),
+      criadoPor: auth.currentUser ? auth.currentUser.email : '',
+      resolvido: false
+    });
+
+    input.value = '';
+
+    await savePendencias();
+    await writeAudit(
+      'Pendência adicionada',
+      `${texto}${owner.value ? ' · Responsável: '+owner.value : ''}`,
+      'pendencia'
+    );
+
+    renderPendencias();
+    showToast('Pendência adicionada');
+  });
 
   // ---------- history ----------
   function renderHistory(){
