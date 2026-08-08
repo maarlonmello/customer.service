@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reunião do Bom Dia — Polistampo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#181c20;
+    --bg-plate:#20252b;
+    --panel:#242a31;
+    --panel-alt:#2b323a;
+    --border:#3a4149;
+    --text:#EDEAE4;
+    --text-dim:#9aa3ab;
+    --accent:#ED8A2B;
+    --accent-dim:#c26f1c;
+    --steel:#5C8AA6;
+    --ok:#4FA876;
+    --danger:#D9534F;
+    --rivet:#40484f;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 0);
+    background-size: 22px 22px;
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    padding:0 0 60px 0;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:20px 20px 0;}
+
+  /* ---- Header plate ---- */
+  .plate{
+    background:linear-gradient(180deg,#262c33,#1e232a);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 26px;
+    position:relative;
+    margin-bottom:22px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .rivet{
+    position:absolute;
+    width:8px;height:8px;
+    border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #6a747c, var(--rivet));
+    box-shadow: 0 1px 1px rgba(0,0,0,0.6);
+  }
+  .rivet.tl{top:10px;left:10px;} .rivet.tr{top:10px;right:10px;}
+  .rivet.bl{bottom:10px;left:10px;} .rivet.br{bottom:10px;right:10px;}
+
+  .plate-top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    color:var(--accent);
+    text-transform:uppercase;
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:'Oswald',sans-serif;
+    font-weight:700;
+    font-size:30px;
+    letter-spacing:0.02em;
+    text-transform:uppercase;
+    margin:0;
+    color:var(--text);
+  }
+  .subtitle{color:var(--text-dim);font-size:13.5px;margin-top:4px;}
+  .datebox{
+    font-family:'JetBrains Mono',monospace;
+    text-align:right;
+    font-size:13px;
+    color:var(--text-dim);
+    text-transform:capitalize;
+  }
+
+  /* ---- Timer ---- */
+  .timer-row{
+    margin-top:18px;
+    display:flex;
+    align-items:center;
+    gap:16px;
+    flex-wrap:wrap;
+    border-top:1px solid var(--border);
+    padding-top:16px;
+  }
+  .timer-display{
+    font-family:'JetBrains Mono',monospace;
+    font-size:34px;
+    font-weight:700;
+    letter-spacing:0.05em;
+    background:#101317;
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:6px 16px;
+    color:var(--ok);
+    min-width:120px;
+    text-align:center;
+  }
+  .timer-display.warn{color:var(--accent);}
+  .timer-display.over{color:var(--danger);}
+  .btn{
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    border:1px solid var(--border);
+    background:var(--panel-alt);
+    color:var(--text);
+    padding:9px 16px;
+    border-radius:6px;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--steel);}
+  .btn.primary{background:var(--accent);border-color:var(--accent-dim);color:#1a1206;}
+  .btn.primary:hover{background:#ff9a34;}
+  .btn.ghost{background:transparent;}
+  .btn.small{padding:5px 10px;font-size:12px;}
+  .timer-label{font-size:12px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.06em;}
+
+  /* ---- Section titles ---- */
+  .section-title{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    font-size:15px;
+    letter-spacing:0.08em;
+    color:var(--steel);
+    margin:30px 0 12px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  /* ---- Roster grid ---- */
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  @media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:520px){.grid{grid-template-columns:1fr;}}
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px 14px 12px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    transition:border-color .15s;
+  }
+  .card.blocked{border-color:var(--danger);}
+  .card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .name-input{
+    background:transparent;
+    border:none;
+    color:var(--text);
+    font-weight:600;
+    font-size:14.5px;
+    font-family:'Inter',sans-serif;
+    padding:2px 0;
+    width:100%;
+    border-bottom:1px dashed transparent;
+  }
+  .name-input:focus{outline:none;border-bottom:1px dashed var(--steel);}
+
+  .status-light{
+    width:11px;height:11px;border-radius:50%;
+    background:var(--ok);
+    box-shadow:0 0 6px var(--ok);
+    flex-shrink:0;
+    cursor:pointer;
+    border:1px solid rgba(0,0,0,0.3);
+  }
+  .status-light.blocked{background:var(--danger);box-shadow:0 0 6px var(--danger);}
+
+  textarea, input[type=text], input[type=number]{
+    background:var(--panel-alt);
+    border:1px solid var(--border);
+    border-radius:6px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:13px;
+    padding:8px 10px;
+    width:100%;
+    resize:none;
+  }
+  textarea::placeholder, input::placeholder{color:#616a72;}
+  textarea:focus, input:focus{outline:none;border-color:var(--steel);}
+  .prio-field{min-height:44px;}
+  .block-field{display:none;min-height:38px;border-color:var(--danger);}
+  .block-field.show{display:block;}
+
+  /* ---- EDI card ---- */
+  .edi-card{
+    grid-column:1/-1;
+    background:linear-gradient(135deg,var(--panel),var(--panel-alt));
+    border:1px solid var(--steel);
+  }
+  .edi-tag{
+    display:inline-block;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    letter-spacing:0.08em;
+    background:rgba(92,138,166,0.18);
+    color:var(--steel);
+    border:1px solid var(--steel);
+    padding:2px 8px;
+    border-radius:4px;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+  .edi-sub-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px;}
+  @media(max-width:700px){.edi-sub-grid{grid-template-columns:1fr;}}
+  .edi-sub label{font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:4px;}
+
+  /* ---- Pendências ---- */
+  .pend-list{display:flex;flex-direction:column;gap:8px;}
+  .pend-item{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:10px 12px;
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+  }
+  .pend-item.resolved{opacity:0.45;}
+  .pend-check{
+    width:18px;height:18px;border-radius:4px;border:1px solid var(--border);
+    background:var(--panel-alt);cursor:pointer;flex-shrink:0;margin-top:1px;
+    display:flex;align-items:center;justify-content:center;font-size:12px;
+  }
+  .pend-item.resolved .pend-check{background:var(--ok);border-color:var(--ok);color:#0d1a12;}
+  .pend-body{flex:1;}
+  .pend-text{font-size:13.5px;line-height:1.4;}
+  .pend-meta{font-size:11px;color:var(--text-dim);margin-top:3px;font-family:'JetBrains Mono',monospace;}
+  .pend-del{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:15px;padding:0 4px;}
+  .pend-del:hover{color:var(--danger);}
+  .add-pend-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .add-pend-row input[type=text]{flex:1;min-width:180px;}
+  select{
+    background:var(--panel-alt);border:1px solid var(--border);color:var(--text);
+    border-radius:6px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:13px;
+  }
+
+  /* ---- Footer actions ---- */
+  .footer-actions{
+    margin-top:34px;
+    display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+    border-top:1px solid var(--border);
+    padding-top:18px;
+  }
+  .status-note{font-size:12px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
+  .toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ok);color:#0d1a12;font-weight:600;font-size:13px;
+    padding:10px 18px;border-radius:8px;opacity:0;
+    transition:opacity .25s, transform .25s;pointer-events:none;
+    box-shadow:0 6px 18px rgba(0,0,0,0.4);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  /* ---- History ---- */
+  .history-list{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;}
+  .history-item{
+    background:var(--panel);border:1px solid var(--border);border-radius:6px;
+    padding:8px 12px;font-size:12.5px;display:flex;justify-content:space-between;
+    font-family:'JetBrains Mono',monospace;color:var(--text-dim);
+  }
+  .empty-hint{color:var(--text-dim);font-size:13px;font-style:italic;padding:8px 2px;}
+  details summary{cursor:pointer;color:var(--steel);font-size:13px;margin:6px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="plate">
+    <div class="rivet tl"></div><div class="rivet tr"></div>
+    <div class="rivet bl"></div><div class="rivet br"></div>
+    <div class="plate-top">
+      <div>
+        <p class="eyebrow">Atendimento &amp; Logística</p>
+        <h1>Reunião do Bom Dia</h1>
+        <div class="subtitle">Polistampo — alinhamento diário da equipe</div>
+      </div>
+      <div class="datebox" id="dateBox"></div>
+    </div>
+    <div class="timer-row">
+      <div class="timer-label">Tempo</div>
+      <div class="timer-display" id="timerDisplay">15:00</div>
+      <button class="btn primary small" id="startBtn">Iniciar</button>
+      <button class="btn small" id="pauseBtn">Pausar</button>
+      <button class="btn ghost small" id="resetBtn">Reiniciar (15min)</button>
+    </div>
+  </div>
+
+  <div class="section-title">Equipe — atendimento ao cliente</div>
+  <div class="grid" id="analistasGrid"></div>
+
+  <div class="section-title">EDI — dados e demandas</div>
+  <div class="grid" id="ediGrid"></div>
+
+  <div class="section-title">Pendências em aberto</div>
+  <div class="pend-list" id="pendList"></div>
+  <div class="add-pend-row">
+    <input type="text" id="newPendText" placeholder="Nova pendência (ex: cliente X aguardando retorno sobre NF)">
+    <select id="newPendOwner"></select>
+    <button class="btn primary small" id="addPendBtn">Adicionar</button>
+  </div>
+
+  <div class="footer-actions">
+    <button class="btn primary" id="closeMeetingBtn">Encerrar reunião de hoje</button>
+    <span class="status-note" id="saveStatus">pronto</span>
+  </div>
+
+  <details style="margin-top:24px;">
+    <summary>Histórico de reuniões</summary>
+    <div class="history-list" id="historyList"></div>
+  </details>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const DEFAULT_ANALISTAS = ['Analista 1','Analista 2','Analista 3','Analista 4','Analista 5','Analista 6','Analista 7','Analista 8'];
+  const DEFAULT_EDI_NAME = 'Analista EDI';
+  const todayKey = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  };
+  const toast = document.getElementById('toast');
+  function showToast(msg){
+    toast.textContent = msg;
+    toast.classList.add('show');
+    setTimeout(()=>toast.classList.remove('show'), 1800);
+  }
+  function setSaveStatus(msg){
+    document.getElementById('saveStatus').textContent = msg;
+  }
+
+  // ---------- date header ----------
+  document.getElementById('dateBox').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+
+  // ---------- storage helpers ----------
+  async function storageGet(key, shared){
+    try{
+      const value = localStorage.getItem(key);
+      return value ? JSON.parse(value) : null;
+    }catch(e){
+      console.error('storage get failed', e);
+      return null;
+    }
+  }
+
+  async function storageSet(key, value, shared){
+    try{
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    }catch(e){
+      console.error('storage set failed', e);
+      return false;
+    }
+  }
+
+  // ---------- state ----------
+  let roster = null;       // { analistas:[...8 names], edi: name }
+  let dayData = null;      // today's entry
+  let pendencias = [];     // shared open items across days
+  let history = [];        // list of {date} logged
+
+  // ---------- timer ----------
+  let totalSeconds = 15*60;
+  let remaining = totalSeconds;
+  let timerInterval = null;
+  const timerDisplay = document.getElementById('timerDisplay');
+  function renderTimer(){
+    const m = Math.floor(Math.abs(remaining)/60).toString().padStart(2,'0');
+    const s = (Math.abs(remaining)%60).toString().padStart(2,'0');
+    timerDisplay.textContent = (remaining<0?'-':'') + m + ':' + s;
+    timerDisplay.classList.toggle('warn', remaining <= 120 && remaining > 0);
+    timerDisplay.classList.toggle('over', remaining <= 0);
+  }
+  document.getElementById('startBtn').onclick = ()=>{
+    if(timerInterval) return;
+    timerInterval = setInterval(()=>{ remaining--; renderTimer(); }, 1000);
+  };
+  document.getElementById('pauseBtn').onclick = ()=>{
+    clearInterval(timerInterval); timerInterval = null;
+  };
+  document.getElementById('resetBtn').onclick = ()=>{
+    clearInterval(timerInterval); timerInterval = null;
+    remaining = totalSeconds; renderTimer();
+  };
+  renderTimer();
+
+  // ---------- roster load/init ----------
+  async function loadRoster(){
+    let r = await storageGet('roster', true);
+    if(!r){
+      r = { analistas: DEFAULT_ANALISTAS.slice(), edi: DEFAULT_EDI_NAME };
+      await storageSet('roster', r, true);
+    }
+    return r;
+  }
+
+  async function saveRoster(){
+    await storageSet('roster', roster, true);
+  }
+
+  // ---------- day data load/init ----------
+  function blankDay(){
+    const members = {};
+    roster.analistas.forEach(n=>{ members[n] = { prioridade:'', bloqueado:false, bloqueio:'' }; });
+    return {
+      date: todayKey(),
+      members,
+      edi: { recebidos:'', pcp:'', expedicao:'', atendimento:'' }
+    };
+  }
+
+  async function loadDayData(){
+    let d = await storageGet('daily:'+todayKey(), true);
+    if(!d){ d = blankDay(); }
+    else{
+      // ensure any newly-added roster members exist in today's data
+      roster.analistas.forEach(n=>{ if(!d.members[n]) d.members[n] = {prioridade:'',bloqueado:false,bloqueio:''}; });
+    }
+    return d;
+  }
+
+  async function saveDayData(){
+    dayData.date = todayKey();
+    await storageSet('daily:'+todayKey(), dayData, true);
+    setSaveStatus('salvo ' + new Date().toLocaleTimeString('pt-BR'));
+  }
+  let saveTimeout = null;
+  function scheduleSave(){
+    setSaveStatus('salvando...');
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveDayData, 500);
+  }
+
+  // ---------- pendências ----------
+  async function loadPendencias(){
+    return (await storageGet('pendencias', true)) || [];
+  }
+  async function savePendencias(){
+    await storageSet('pendencias', pendencias, true);
+  }
+
+  // ---------- history ----------
+  async function loadHistory(){
+    return (await storageGet('history', true)) || [];
+  }
+  async function saveHistory(){
+    await storageSet('history', history, true);
+  }
+
+  // ---------- render: analistas grid ----------
+  function renderAnalistas(){
+    const grid = document.getElementById('analistasGrid');
+    grid.innerHTML = '';
+    roster.analistas.forEach((name, idx)=>{
+      const m = dayData.members[name] || {prioridade:'',bloqueado:false,bloqueio:''};
+      const card = document.createElement('div');
+      card.className = 'card' + (m.bloqueado ? ' blocked':'');
+      card.innerHTML = `
+        <div class="card-head">
+          <input class="name-input" value="${escapeAttr(name)}" data-idx="${idx}" data-role="analista-name">
+          <div class="status-light ${m.bloqueado?'blocked':''}" data-idx="${idx}" data-role="toggle-block" title="Marcar bloqueio"></div>
+        </div>
+        <textarea class="prio-field" rows="2" placeholder="Prioridade de hoje..." data-name="${escapeAttr(name)}" data-role="prioridade">${escapeHtml(m.prioridade)}</textarea>
+        <textarea class="block-field ${m.bloqueado?'show':''}" rows="2" placeholder="Qual o bloqueio? O que precisa para destravar?" data-name="${escapeAttr(name)}" data-role="bloqueio-desc">${escapeHtml(m.bloqueio)}</textarea>
+      `;
+      grid.appendChild(card);
+    });
+
+    grid.querySelectorAll('[data-role="analista-name"]').forEach(el=>{
+      el.addEventListener('change', async (e)=>{
+        const idx = +e.target.dataset.idx;
+        const oldName = roster.analistas[idx];
+        const newName = e.target.value.trim() || oldName;
+        if(newName === oldName) return;
+        roster.analistas[idx] = newName;
+        dayData.members[newName] = dayData.members[oldName] || {prioridade:'',bloqueado:false,bloqueio:''};
+        delete dayData.members[oldName];
+        await saveRoster();
+        scheduleSave();
+        renderAnalistas();
+        renderOwnerSelect();
+      });
+    });
+    grid.querySelectorAll('[data-role="toggle-block"]').forEach(el=>{
+      el.addEventListener('click', (e)=>{
+        const idx = +e.target.dataset.idx;
+        const name = roster.analistas[idx];
+        dayData.members[name].bloqueado = !dayData.members[name].bloqueado;
+        scheduleSave();
+        renderAnalistas();
+      });
+    });
+    grid.querySelectorAll('[data-role="prioridade"]').forEach(el=>{
+      el.addEventListener('input', (e)=>{
+        dayData.members[e.target.dataset.name].prioridade = e.target.value;
+        scheduleSave();
+      });
+    });
+    grid.querySelectorAll('[data-role="bloqueio-desc"]').forEach(el=>{
+      el.addEventListener('input', (e)=>{
+        dayData.members[e.target.dataset.name].bloqueio = e.target.value;
+        scheduleSave();
+      });
+    });
+  }
+
+  // ---------- render: EDI card ----------
+  function renderEdi(){
+    const grid = document.getElementById('ediGrid');
+    grid.innerHTML = `
+      <div class="card edi-card">
+        <div class="card-head">
+          <div>
+            <span class="edi-tag">Recepção &amp; tratamento de EDI</span><br>
+            <input class="name-input" id="ediName" value="${escapeAttr(roster.edi)}" style="font-size:15px;">
+          </div>
+          <input type="number" id="ediRecebidos" placeholder="EDIs hoje" style="max-width:110px;" value="${escapeAttr(dayData.edi.recebidos)}">
+        </div>
+        <div class="edi-sub-grid">
+          <div class="edi-sub">
+            <label>Demandas p/ PCP</label>
+            <textarea rows="3" id="ediPcp" placeholder="Pendências enviadas ao PCP...">${escapeHtml(dayData.edi.pcp)}</textarea>
+          </div>
+          <div class="edi-sub">
+            <label>Demandas p/ Expedição</label>
+            <textarea rows="3" id="ediExp" placeholder="Pendências enviadas à Expedição...">${escapeHtml(dayData.edi.expedicao)}</textarea>
+          </div>
+          <div class="edi-sub">
+            <label>Demandas p/ Atendimento</label>
+            <textarea rows="3" id="ediAtend" placeholder="Pontos para os analistas de atendimento...">${escapeHtml(dayData.edi.atendimento)}</textarea>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('ediName').addEventListener('change', async (e)=>{
+      roster.edi = e.target.value.trim() || roster.edi;
+      await saveRoster();
+      renderOwnerSelect();
+    });
+    document.getElementById('ediRecebidos').addEventListener('input', e=>{ dayData.edi.recebidos = e.target.value; scheduleSave(); });
+    document.getElementById('ediPcp').addEventListener('input', e=>{ dayData.edi.pcp = e.target.value; scheduleSave(); });
+    document.getElementById('ediExp').addEventListener('input', e=>{ dayData.edi.expedicao = e.target.value; scheduleSave(); });
+    document.getElementById('ediAtend').addEventListener('input', e=>{ dayData.edi.atendimento = e.target.value; scheduleSave(); });
+  }
+
+  // ---------- render: pendências ----------
+  function renderOwnerSelect(){
+    const sel = document.getElementById('newPendOwner');
+    sel.innerHTML = '<option value="">Sem responsável</option>' +
+      [...roster.analistas, roster.edi].map(n=>`<option value="${escapeAttr(n)}">${escapeHtml(n)}</option>`).join('');
+  }
+
+  function renderPendencias(){
+    const list = document.getElementById('pendList');
+    const open = pendencias.filter(p=>!p.resolvido);
+    const resolved = pendencias.filter(p=>p.resolvido);
+    const ordered = [...open, ...resolved];
+    if(ordered.length === 0){
+      list.innerHTML = '<div class="empty-hint">Nenhuma pendência em aberto. Bom sinal.</div>';
+      return;
+    }
+    list.innerHTML = ordered.map(p=>`
+      <div class="pend-item ${p.resolvido?'resolved':''}">
+        <div class="pend-check" data-id="${p.id}">${p.resolvido?'✓':''}</div>
+        <div class="pend-body">
+          <div class="pend-text">${escapeHtml(p.texto)}</div>
+          <div class="pend-meta">${p.responsavel ? escapeHtml(p.responsavel)+' · ' : ''}desde ${p.criadoEm}</div>
+        </div>
+        <button class="pend-del" data-id="${p.id}" title="Remover">✕</button>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.pend-check').forEach(el=>{
+      el.addEventListener('click', async ()=>{
+        const p = pendencias.find(x=>x.id===el.dataset.id);
+        p.resolvido = !p.resolvido;
+        await savePendencias();
+        renderPendencias();
+      });
+    });
+    list.querySelectorAll('.pend-del').forEach(el=>{
+      el.addEventListener('click', async ()=>{
+        pendencias = pendencias.filter(x=>x.id!==el.dataset.id);
+        await savePendencias();
+        renderPendencias();
+      });
+    });
+  }
+
+  document.getElementById('addPendBtn').addEventListener('click', async ()=>{
+    const input = document.getElementById('newPendText');
+    const owner = document.getElementById('newPendOwner');
+    const texto = input.value.trim();
+    if(!texto) return;
+    pendencias.unshift({
+      id: 'p_'+Date.now(),
+      texto,
+      responsavel: owner.value,
+      criadoEm: new Date().toLocaleDateString('pt-BR'),
+      resolvido: false
+    });
+    input.value = '';
+    await savePendencias();
+    renderPendencias();
+    showToast('Pendência adicionada');
+  });
+
+  // ---------- history ----------
+  function renderHistory(){
+    const list = document.getElementById('historyList');
+    if(history.length === 0){
+      list.innerHTML = '<div class="empty-hint">Nenhuma reunião encerrada ainda.</div>';
+      return;
+    }
+    list.innerHTML = history.slice().reverse().map(h=>`
+      <div class="history-item"><span>${h.date}</span><span>${h.bloqueios||0} bloqueio(s) registrado(s)</span></div>
+    `).join('');
+  }
+
+  // ---------- close meeting ----------
+  document.getElementById('closeMeetingBtn').addEventListener('click', async ()=>{
+    await saveDayData();
+    const bloqueios = Object.values(dayData.members).filter(m=>m.bloqueado).length;
+    if(!history.find(h=>h.date===todayKey())){
+      history.push({ date: todayKey(), bloqueios });
+      await saveHistory();
+    }
+    renderHistory();
+    showToast('Reunião de hoje encerrada e registrada ✓');
+  });
+
+  // ---------- utils ----------
+  function escapeHtml(str){
+    return (str||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function escapeAttr(str){ return escapeHtml(str); }
+
+  // ---------- init ----------
+  async function init(){
+    setSaveStatus('carregando...');
+    roster = await loadRoster();
+    dayData = await loadDayData();
+    pendencias = await loadPendencias();
+    history = await loadHistory();
+    renderAnalistas();
+    renderEdi();
+    renderOwnerSelect();
+    renderPendencias();
+    renderHistory();
+    setSaveStatus('pronto');
+  }
+  init();
+})();
+</script>
+</body>
+</html>
