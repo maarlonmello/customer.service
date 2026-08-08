@@ -277,9 +277,110 @@
   }
   .empty-hint{color:var(--text-dim);font-size:13px;font-style:italic;padding:8px 2px;}
   details summary{cursor:pointer;color:var(--steel);font-size:13px;margin:6px 0;}
+
+  /* ---- Authentication ---- */
+  .auth-screen{
+    position:fixed;
+    inset:0;
+    z-index:9999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.025) 1px, transparent 0),
+      var(--bg);
+    background-size:22px 22px;
+  }
+  .auth-screen.hidden{display:none;}
+  .auth-card{
+    width:min(430px,100%);
+    background:linear-gradient(180deg,#262c33,#1e232a);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:28px;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+  }
+  .auth-card h2{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    font-size:25px;
+    margin:4px 0 6px;
+  }
+  .auth-card p{color:var(--text-dim);font-size:13px;line-height:1.45;margin:0 0 20px;}
+  .auth-field{margin-top:11px;}
+  .auth-field label{
+    display:block;
+    margin:0 0 5px;
+    color:var(--text-dim);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  .auth-field input{
+    background:var(--panel-alt);
+    border:1px solid var(--border);
+    border-radius:6px;
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    font-size:14px;
+    padding:10px 11px;
+    width:100%;
+  }
+  .auth-actions{display:flex;align-items:center;gap:10px;margin-top:18px;}
+  .auth-error{min-height:18px;margin-top:12px;color:#ff8c88;font-size:12px;}
+  .auth-note{margin-top:15px!important;font-size:11px!important;}
+  .app-shell.auth-hidden{display:none;}
+  .user-box{
+    margin-top:8px;
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .user-email{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--text-dim);
+    font-size:10.5px;
+    max-width:260px;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
 </style>
 </head>
 <body>
+
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <p class="eyebrow">Atendimento &amp; Logística</p>
+    <h2>Acesso à Reunião do Bom Dia</h2>
+    <p>Entre com o usuário cadastrado no Firebase para acessar os dados compartilhados da equipe.</p>
+
+    <div class="auth-field">
+      <label for="loginEmail">E-mail</label>
+      <input type="email" id="loginEmail" autocomplete="username" placeholder="seu.email@empresa.com">
+    </div>
+
+    <div class="auth-field">
+      <label for="loginPassword">Senha</label>
+      <input type="password" id="loginPassword" autocomplete="current-password" placeholder="••••••••">
+    </div>
+
+    <div class="auth-actions">
+      <button class="btn primary" id="loginBtn">Entrar</button>
+      <span class="status-note" id="loginStatus"></span>
+    </div>
+
+    <div class="auth-error" id="loginError"></div>
+    <p class="auth-note">O acesso é restrito a usuários cadastrados pelo administrador do projeto.</p>
+  </div>
+</div>
+
+<div class="app-shell auth-hidden" id="appShell">
 <div class="wrap">
 
   <div class="plate">
@@ -291,7 +392,13 @@
         <h1>Reunião do Bom Dia</h1>
         <div class="subtitle">Polistampo — alinhamento diário da equipe</div>
       </div>
-      <div class="datebox" id="dateBox"></div>
+      <div>
+        <div class="datebox" id="dateBox"></div>
+        <div class="user-box">
+          <span class="user-email" id="userEmail"></span>
+          <button class="btn ghost small" id="logoutBtn" type="button">Sair</button>
+        </div>
+      </div>
     </div>
     <div class="timer-row">
       <div class="timer-label">Tempo</div>
@@ -328,9 +435,41 @@
 
 </div>
 
+</div>
+
 <div class="toast" id="toast"></div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAtFszTC3lz7CfbqxmzDi4apv88NP_9Mwo",
+  authDomain: "reuniaobomdiapolistampo.firebaseapp.com",
+  projectId: "reuniaobomdiapolistampo",
+  storageBucket: "reuniaobomdiapolistampo.firebasestorage.app",
+  messagingSenderId: "718270866079",
+  appId: "1:718270866079:web:34594136c5f9f88d6b38aa"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
 (function(){
   const DEFAULT_ANALISTAS = ['Analista 1','Analista 2','Analista 3','Analista 4','Analista 5','Analista 6','Analista 7','Analista 8'];
   const DEFAULT_EDI_NAME = 'Analista EDI';
@@ -354,25 +493,132 @@
   // ---------- date header ----------
   document.getElementById('dateBox').textContent = new Date().toLocaleDateString('pt-BR',{weekday:'long', day:'2-digit', month:'long', year:'numeric'});
 
-  // ---------- storage helpers ----------
+  // ---------- Firestore helpers ----------
+  const DATA_COLLECTION = 'appData';
+
   async function storageGet(key, shared){
     try{
-      const value = localStorage.getItem(key);
-      return value ? JSON.parse(value) : null;
+      const snap = await getDoc(doc(db, DATA_COLLECTION, key));
+      return snap.exists() ? snap.data().value : null;
     }catch(e){
-      console.error('storage get failed', e);
+      console.error('firestore get failed', key, e);
       return null;
     }
   }
 
   async function storageSet(key, value, shared){
     try{
-      localStorage.setItem(key, JSON.stringify(value));
+      await setDoc(doc(db, DATA_COLLECTION, key), {
+        value,
+        updatedAt: new Date().toISOString(),
+        updatedBy: auth.currentUser ? auth.currentUser.email : ''
+      });
       return true;
     }catch(e){
-      console.error('storage set failed', e);
+      console.error('firestore set failed', key, e);
+      setSaveStatus('erro ao salvar');
       return false;
     }
+  }
+
+  // Migra automaticamente os dados que já existiam no localStorage
+  // deste mesmo GitHub Pages na primeira utilização do Firestore.
+  async function migrateLegacyLocalStorage(){
+    try{
+      const keys = [];
+      for(let i=0;i<localStorage.length;i++){
+        const key = localStorage.key(i);
+        if(key === 'roster' || key === 'pendencias' || key === 'history' || (key && key.startsWith('daily:'))){
+          keys.push(key);
+        }
+      }
+
+      for(const key of keys){
+        const remote = await getDoc(doc(db, DATA_COLLECTION, key));
+        if(remote.exists()) continue;
+
+        const raw = localStorage.getItem(key);
+        if(!raw) continue;
+
+        try{
+          const value = JSON.parse(raw);
+          await setDoc(doc(db, DATA_COLLECTION, key), {
+            value,
+            updatedAt: new Date().toISOString(),
+            updatedBy: auth.currentUser ? auth.currentUser.email : '',
+            migratedFromLocalStorage: true
+          });
+        }catch(parseError){
+          console.warn('localStorage migration skipped', key, parseError);
+        }
+      }
+    }catch(e){
+      console.warn('legacy migration failed', e);
+    }
+  }
+
+  let realtimeUnsubs = [];
+
+  function stopRealtime(){
+    realtimeUnsubs.forEach(fn=>{ try{ fn(); }catch(e){} });
+    realtimeUnsubs = [];
+  }
+
+  function isDifferent(a,b){
+    try{ return JSON.stringify(a) !== JSON.stringify(b); }
+    catch(e){ return true; }
+  }
+
+  function ensureDayMembers(){
+    if(!roster || !dayData) return;
+    dayData.members = dayData.members || {};
+    roster.analistas.forEach(n=>{
+      if(!dayData.members[n]){
+        dayData.members[n] = {prioridade:'',bloqueado:false,bloqueio:''};
+      }
+    });
+    dayData.edi = dayData.edi || {recebidos:'',pcp:'',expedicao:'',atendimento:''};
+  }
+
+  function setupRealtime(){
+    stopRealtime();
+
+    realtimeUnsubs.push(onSnapshot(doc(db, DATA_COLLECTION, 'roster'), snap=>{
+      if(!snap.exists()) return;
+      const incoming = snap.data().value;
+      if(!incoming || !isDifferent(incoming, roster)) return;
+      roster = incoming;
+      ensureDayMembers();
+      renderAnalistas();
+      renderEdi();
+      renderOwnerSelect();
+    }));
+
+    realtimeUnsubs.push(onSnapshot(doc(db, DATA_COLLECTION, 'daily:'+todayKey()), snap=>{
+      if(!snap.exists()) return;
+      const incoming = snap.data().value;
+      if(!incoming || !isDifferent(incoming, dayData)) return;
+      dayData = incoming;
+      ensureDayMembers();
+      renderAnalistas();
+      renderEdi();
+    }));
+
+    realtimeUnsubs.push(onSnapshot(doc(db, DATA_COLLECTION, 'pendencias'), snap=>{
+      if(!snap.exists()) return;
+      const incoming = snap.data().value || [];
+      if(!isDifferent(incoming, pendencias)) return;
+      pendencias = incoming;
+      renderPendencias();
+    }));
+
+    realtimeUnsubs.push(onSnapshot(doc(db, DATA_COLLECTION, 'history'), snap=>{
+      if(!snap.exists()) return;
+      const incoming = snap.data().value || [];
+      if(!isDifferent(incoming, history)) return;
+      history = incoming;
+      renderHistory();
+    }));
   }
 
   // ---------- state ----------
@@ -671,7 +917,87 @@
     renderHistory();
     setSaveStatus('pronto');
   }
-  init();
+  // ---------- authentication ----------
+  const authScreen = document.getElementById('authScreen');
+  const appShell = document.getElementById('appShell');
+  const loginEmail = document.getElementById('loginEmail');
+  const loginPassword = document.getElementById('loginPassword');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginError = document.getElementById('loginError');
+  const loginStatus = document.getElementById('loginStatus');
+  const userEmail = document.getElementById('userEmail');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  function friendlyAuthError(error){
+    const code = error && error.code ? error.code : '';
+    if(code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found'){
+      return 'E-mail ou senha inválidos.';
+    }
+    if(code === 'auth/too-many-requests'){
+      return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+    }
+    if(code === 'auth/invalid-email'){
+      return 'Informe um e-mail válido.';
+    }
+    if(code === 'auth/unauthorized-domain'){
+      return 'Este domínio ainda não está autorizado no Firebase Authentication.';
+    }
+    return 'Não foi possível entrar. Verifique os dados e tente novamente.';
+  }
+
+  async function doLogin(){
+    loginError.textContent = '';
+    loginStatus.textContent = 'entrando...';
+    loginBtn.disabled = true;
+    try{
+      await setPersistence(auth, browserLocalPersistence);
+      await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value);
+      loginPassword.value = '';
+    }catch(e){
+      console.error(e);
+      loginError.textContent = friendlyAuthError(e);
+    }finally{
+      loginStatus.textContent = '';
+      loginBtn.disabled = false;
+    }
+  }
+
+  loginBtn.addEventListener('click', doLogin);
+  loginPassword.addEventListener('keydown', e=>{ if(e.key === 'Enter') doLogin(); });
+  loginEmail.addEventListener('keydown', e=>{ if(e.key === 'Enter') loginPassword.focus(); });
+
+  logoutBtn.addEventListener('click', async ()=>{
+    stopRealtime();
+    await signOut(auth);
+  });
+
+  let initializedForUser = false;
+
+  onAuthStateChanged(auth, async user=>{
+    if(!user){
+      initializedForUser = false;
+      stopRealtime();
+      appShell.classList.add('auth-hidden');
+      authScreen.classList.remove('hidden');
+      userEmail.textContent = '';
+      setSaveStatus('aguardando login');
+      return;
+    }
+
+    authScreen.classList.add('hidden');
+    appShell.classList.remove('auth-hidden');
+    userEmail.textContent = user.email || 'usuário autenticado';
+
+    if(!initializedForUser){
+      initializedForUser = true;
+      setSaveStatus('sincronizando...');
+      await migrateLegacyLocalStorage();
+      await init();
+      setupRealtime();
+      setSaveStatus('online');
+    }
+  });
+
 })();
 </script>
 </body>
