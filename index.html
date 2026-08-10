@@ -370,6 +370,156 @@
   .history-item .history-date{color:var(--text);font-weight:700;}
   .history-item .history-meta{font-size:10.5px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;}
 
+
+  /* ---- Auditoria visível ---- */
+  .audit-panel{
+    margin-top:30px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px;
+  }
+  .audit-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .audit-title{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    font-size:15px;
+    letter-spacing:.08em;
+    color:var(--steel);
+  }
+  .audit-list{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    max-height:320px;
+    overflow:auto;
+  }
+  .audit-item{
+    display:grid;
+    grid-template-columns:88px 1fr;
+    gap:10px;
+    padding:9px 10px;
+    background:var(--panel-alt);
+    border:1px solid var(--border);
+    border-radius:7px;
+  }
+  .audit-time{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .audit-action{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--text);
+  }
+  .audit-meta{
+    margin-top:3px;
+    font-size:11px;
+    color:var(--text-dim);
+    word-break:break-word;
+  }
+
+
+  /* ---- Refinamento do histórico de atualizações ---- */
+  .audit-panel{
+    margin-top:30px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px;
+  }
+  .audit-toolbar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .audit-filter{
+    border:1px solid var(--border);
+    background:var(--panel-alt);
+    color:var(--text-dim);
+    border-radius:999px;
+    padding:6px 10px;
+    font-size:11px;
+    cursor:pointer;
+  }
+  .audit-filter.active{
+    border-color:var(--steel);
+    color:var(--text);
+    background:rgba(92,138,166,.14);
+  }
+  .audit-list{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    max-height:340px;
+    overflow:auto;
+  }
+  .audit-item{
+    display:grid;
+    grid-template-columns:92px 1fr auto;
+    gap:10px;
+    align-items:start;
+    padding:10px 11px;
+    background:var(--panel-alt);
+    border:1px solid var(--border);
+    border-radius:8px;
+  }
+  .audit-item.critical{
+    border-color:rgba(217,83,79,.7);
+  }
+  .audit-time{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10.5px;
+    color:var(--text-dim);
+    white-space:nowrap;
+  }
+  .audit-action{
+    font-size:12.5px;
+    font-weight:700;
+    color:var(--text);
+  }
+  .audit-detail{
+    margin-top:3px;
+    font-size:11.5px;
+    color:var(--text-dim);
+  }
+  .audit-user{
+    margin-top:4px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    color:#7f8992;
+  }
+  .audit-badge{
+    display:inline-flex;
+    align-items:center;
+    padding:3px 7px;
+    border-radius:999px;
+    border:1px solid var(--border);
+    font-size:9.5px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--text-dim);
+    white-space:nowrap;
+  }
+  .audit-badge.admin{border-color:rgba(237,138,43,.6);color:var(--accent);}
+  .audit-badge.edi{border-color:rgba(92,138,166,.6);color:var(--steel);}
+  .audit-badge.pendencia{border-color:rgba(79,168,118,.45);color:var(--ok);}
+  .audit-empty{
+    color:var(--text-dim);
+    font-size:12px;
+    padding:10px 2px;
+  }
+
 </style>
 </head>
 <body>
@@ -442,6 +592,27 @@
     <input type="text" id="newPendText" placeholder="Nova pendência (ex: cliente X aguardando retorno sobre NF)">
     <select id="newPendOwner"></select>
     <button class="btn primary small" id="addPendBtn">Adicionar</button>
+  </div>
+
+  
+  
+  <div class="audit-panel">
+    <div class="audit-head">
+      <div class="audit-title">Histórico de Atualizações</div>
+      <span class="status-note">20 registros mais recentes</span>
+    </div>
+
+    <div class="audit-toolbar" id="auditToolbar">
+      <button class="audit-filter active" data-filter="todos">Todos</button>
+      <button class="audit-filter" data-filter="pendencia">Pendências</button>
+      <button class="audit-filter" data-filter="prioridade">Prioridades</button>
+      <button class="audit-filter" data-filter="edi">EDI</button>
+      <button class="audit-filter" data-filter="admin">Admin</button>
+    </div>
+
+    <div class="audit-list" id="auditList">
+      <div class="audit-empty">Nenhuma atualização registrada.</div>
+    </div>
   </div>
 
   <div class="footer-actions">
@@ -537,18 +708,19 @@ function isAdmin(){
 
   const auditTimers = new Map();
 
-  async function writeAudit(action, details='', category='geral'){
-    if(!auth.currentUser) return;
+  async function writeAudit(action, detail='', category='geral'){
     try{
+      const user = auth.currentUser;
+      if(!user) return;
+
       await addDoc(collection(db, 'auditLogs'), {
         action,
-        details,
+        detail,
         category,
-        userEmail: auth.currentUser.email || '',
-        userUid: auth.currentUser.uid || '',
-        role: isAdmin() ? 'Administrador' : 'Usuário',
-        meetingDate: todayKey(),
-        createdAt: serverTimestamp()
+        userUid: user.uid,
+        userEmail: user.email || '',
+        createdAt: serverTimestamp(),
+        createdAtIso: new Date().toISOString()
       });
     }catch(e){
       console.warn('audit write failed', e);
@@ -658,6 +830,10 @@ function isAdmin(){
   function stopRealtime(){
     realtimeUnsubs.forEach(fn=>{ try{ fn(); }catch(e){} });
     realtimeUnsubs = [];
+    if(auditUnsub){
+      try{ auditUnsub(); }catch(e){}
+      auditUnsub = null;
+    }
   }
 
   function isDifferent(a,b){
@@ -674,6 +850,146 @@ function isAdmin(){
       }
     });
     dayData.edi = dayData.edi || {recebidos:'',pcp:'',expedicao:'',atendimento:''};
+  }
+
+
+  let auditUnsub = null;
+  let auditItems = [];
+
+  function formatAuditDate(item){
+    try{
+      if(item.createdAt && typeof item.createdAt.toDate === 'function'){
+        return item.createdAt.toDate().toLocaleString('pt-BR', {
+          day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+        });
+      }
+      if(item.createdAtIso){
+        return new Date(item.createdAtIso).toLocaleString('pt-BR', {
+          day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+        });
+      }
+    }catch(e){}
+    return '--/-- --:--';
+  }
+
+  let auditFilter = 'todos';
+
+  function auditCategory(item){
+    const c = (item.category || '').toLowerCase();
+    const a = (item.action || '').toLowerCase();
+
+    if(c.includes('admin') || a.includes('exclu') || a.includes('nome') || a.includes('encerr')) return 'admin';
+    if(c.includes('edi') || a.includes('edi')) return 'edi';
+    if(c.includes('prioridade') || a.includes('prioridade')) return 'prioridade';
+    if(c.includes('pendencia') || a.includes('pendência')) return 'pendencia';
+    return 'outros';
+  }
+
+  function isCriticalAudit(item){
+    const a = (item.action || '').toLowerCase();
+    return a.includes('exclu')
+      || a.includes('encerr')
+      || a.includes('nome de analista')
+      || a.includes('nome do responsável edi');
+  }
+
+  function roleFromItem(item){
+    const email = (item.userEmail || '').toLowerCase();
+    return email === 'marlon.rodrigues@polistampo.com.br' ? 'Administrador' : 'Usuário';
+  }
+
+  function renderAudit(){
+    const list = document.getElementById('auditList');
+    if(!list) return;
+
+    const filtered = auditItems.filter(item=>{
+      if(auditFilter === 'todos') return true;
+      return auditCategory(item) === auditFilter;
+    });
+
+    if(!filtered.length){
+      list.innerHTML = '<div class="audit-empty">Nenhuma atualização neste filtro.</div>';
+      return;
+    }
+
+    // reduz repetições consecutivas exatamente iguais
+    const compact = [];
+    let previousKey = null;
+    let repeatCount = 0;
+
+    filtered.forEach(item=>{
+      const key = [
+        item.action || '',
+        item.detail || '',
+        item.userEmail || ''
+      ].join('|');
+
+      if(key === previousKey && compact.length){
+        repeatCount++;
+        compact[compact.length - 1]._repeat = repeatCount + 1;
+      }else{
+        previousKey = key;
+        repeatCount = 0;
+        compact.push({...item, _repeat:1});
+      }
+    });
+
+    list.innerHTML = compact.map(item=>{
+      const category = auditCategory(item);
+      const role = roleFromItem(item);
+      const detail = item.detail ? escapeHtml(item.detail) : 'Sem detalhe adicional';
+      const repeat = item._repeat > 1 ? ` · ${item._repeat}x` : '';
+      const critical = isCriticalAudit(item) ? ' critical' : '';
+
+      return `
+        <div class="audit-item${critical}">
+          <div class="audit-time">${escapeHtml(formatAuditDate(item))}</div>
+
+          <div>
+            <div class="audit-action">${escapeHtml(item.action || 'Atualização')}${repeat}</div>
+            <div class="audit-detail">${detail}</div>
+            <div class="audit-user">${escapeHtml(item.userEmail || 'usuário')} · ${role}</div>
+          </div>
+
+          <div>
+            <span class="audit-badge ${category}">${category === 'pendencia' ? 'Pendência' : category === 'prioridade' ? 'Prioridade' : category === 'edi' ? 'EDI' : category === 'admin' ? 'Admin' : 'Outro'}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  document.querySelectorAll('.audit-filter').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.audit-filter').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      auditFilter = btn.dataset.filter;
+      renderAudit();
+    });
+  });
+
+  function setupAuditRealtime(){
+    if(auditUnsub){
+      try{ auditUnsub(); }catch(e){}
+      auditUnsub = null;
+    }
+
+    const q = query(
+      collection(db, 'auditLogs'),
+      orderBy('createdAt', 'desc'),
+      limit(20)
+    );
+
+    auditUnsub = onSnapshot(q, snap=>{
+      auditItems = snap.docs.map(d=>({ id:d.id, ...d.data() }));
+      renderAudit();
+    }, err=>{
+      console.warn('audit realtime failed', err);
+      const list = document.getElementById('auditList');
+      if(list){
+        list.innerHTML = '<div class="empty-hint">Não foi possível carregar a auditoria.</div>';
+      }
+    });
   }
 
   function setupRealtime(){
@@ -1316,6 +1632,7 @@ function isAdmin(){
       await migrateLegacyLocalStorage();
       await init();
       setupRealtime();
+      setupAuditRealtime();
       setSaveStatus('online');
     }
   });
