@@ -594,15 +594,20 @@
     <button class="btn primary small" id="addPendBtn">Adicionar</button>
   </div>
 
-  
-  
-  <div class="audit-panel">
-    <div class="audit-head">
-      <div class="audit-title">Histórico de Atualizações</div>
-      <span class="status-note">20 registros mais recentes</span>
-    </div>
+<div class="footer-actions">
+    <button class="btn primary" id="closeMeetingBtn">Encerrar reunião de hoje</button>
+    <span class="status-note" id="saveStatus">pronto</span>
+  </div>
 
-    <div class="audit-toolbar" id="auditToolbar">
+  <details style="margin-top:24px;">
+    <summary>Histórico de reuniões</summary>
+    <div class="history-list" id="historyList"></div>
+  </details>
+
+  <details style="margin-top:12px;" open>
+    <summary>Histórico de Atualizações</summary>
+
+    <div class="audit-toolbar" id="auditToolbar" style="margin-top:10px;">
       <button class="audit-filter active" data-filter="todos">Todos</button>
       <button class="audit-filter" data-filter="pendencia">Pendências</button>
       <button class="audit-filter" data-filter="prioridade">Prioridades</button>
@@ -613,21 +618,6 @@
     <div class="audit-list" id="auditList">
       <div class="audit-empty">Nenhuma atualização registrada.</div>
     </div>
-  </div>
-
-  <div class="footer-actions">
-    <button class="btn primary" id="closeMeetingBtn">Encerrar reunião de hoje</button>
-    <span class="status-note" id="saveStatus">pronto</span>
-  </div>
-
-  <details style="margin-top:24px;">
-    <summary>Histórico de reuniões</summary>
-    <div class="history-list" id="historyList"></div>
-  </details>
-
-  <details style="margin-top:12px;">
-    <summary>Auditoria de alterações</summary>
-    <div class="audit-list" id="auditList"></div>
   </details>
 
 </div>
