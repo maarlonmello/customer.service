@@ -704,6 +704,105 @@
     border-color:rgba(217,83,79,.75);
   }
 
+
+  /* ---- Itens críticos por analista ---- */
+  .critical-entry{
+    display:flex;
+    gap:7px;
+    align-items:center;
+  }
+  .critical-entry input{
+    flex:1;
+    min-width:0;
+  }
+  .critical-counter{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    color:var(--text-dim);
+    white-space:nowrap;
+  }
+  .critical-items{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .critical-item{
+    display:flex;
+    align-items:flex-start;
+    gap:7px;
+    padding:7px 8px;
+    background:var(--panel-alt);
+    border:1px solid var(--border);
+    border-radius:6px;
+  }
+  .critical-item-text{
+    flex:1;
+    min-width:0;
+    font-size:12px;
+    line-height:1.35;
+    word-break:break-word;
+  }
+  .critical-actions{
+    display:flex;
+    gap:5px;
+    flex-shrink:0;
+  }
+  .critical-mini{
+    border:1px solid var(--border);
+    background:transparent;
+    color:var(--text-dim);
+    border-radius:5px;
+    padding:4px 7px;
+    font-size:10px;
+    cursor:pointer;
+  }
+  .critical-mini:hover{
+    border-color:var(--steel);
+    color:var(--text);
+  }
+  .critical-mini.block{
+    border-color:rgba(217,83,79,.55);
+    color:#ff9995;
+  }
+  .critical-mini.remove:hover{
+    border-color:var(--danger);
+    color:#ff9995;
+  }
+  .blocked-items{
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    margin-top:3px;
+  }
+  .blocked-item{
+    padding:8px;
+    border:1px solid rgba(217,83,79,.6);
+    background:rgba(217,83,79,.07);
+    border-radius:7px;
+  }
+  .blocked-item-head{
+    display:flex;
+    align-items:flex-start;
+    gap:7px;
+  }
+  .blocked-item-title{
+    flex:1;
+    font-size:12px;
+    font-weight:600;
+    color:var(--text);
+    line-height:1.35;
+  }
+  .blocked-detail{
+    margin-top:7px;
+    min-height:38px;
+    border-color:rgba(217,83,79,.55) !important;
+  }
+  .card-hint{
+    font-size:10.5px;
+    color:var(--text-dim);
+    line-height:1.35;
+  }
+
 </style>
 </head>
 <body>
@@ -1059,13 +1158,40 @@ function isAdmin(){
     catch(e){ return true; }
   }
 
+  function normalizeMemberData(member){
+    const m = member || {};
+    if(!Array.isArray(m.itens)){
+      m.itens = [];
+      if((m.prioridade || '').trim()){
+        m.itens.push({
+          id:'legacy_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+          texto:m.prioridade.trim(),
+          bloqueado:!!m.bloqueado,
+          bloqueio:(m.bloqueio || '').trim()
+        });
+      }else if(m.bloqueado || (m.bloqueio || '').trim()){
+        m.itens.push({
+          id:'legacy_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+          texto:'Item crítico migrado',
+          bloqueado:true,
+          bloqueio:(m.bloqueio || '').trim()
+        });
+      }
+    }
+    m.itens = m.itens.slice(0,5).map(item=>({
+      id:item.id || ('i_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)),
+      texto:(item.texto || '').toString(),
+      bloqueado:!!item.bloqueado,
+      bloqueio:(item.bloqueio || '').toString()
+    }));
+    return m;
+  }
+
   function ensureDayMembers(){
     if(!roster || !dayData) return;
     dayData.members = dayData.members || {};
     roster.analistas.forEach(n=>{
-      if(!dayData.members[n]){
-        dayData.members[n] = {prioridade:'',bloqueado:false,bloqueio:''};
-      }
+      dayData.members[n] = normalizeMemberData(dayData.members[n] || {});
     });
     dayData.edi = dayData.edi || {recebidos:'',pcp:'',expedicao:'',atendimento:''};
   }
@@ -1304,7 +1430,7 @@ function isAdmin(){
   // ---------- day data load/init ----------
   function blankDay(){
     const members = {};
-    roster.analistas.forEach(n=>{ members[n] = { prioridade:'', bloqueado:false, bloqueio:'' }; });
+    roster.analistas.forEach(n=>{ members[n] = { itens:[] }; });
     return {
       date: todayKey(),
       members,
@@ -1320,8 +1446,9 @@ function isAdmin(){
       d.edi = d.edi || { recebidos:'', pcp:'', expedicao:'', atendimento:'' };
       roster.analistas.forEach(n=>{
         if(!d.members[n]){
-          d.members[n] = {prioridade:'',bloqueado:false,bloqueio:''};
+          d.members[n] = {itens:[]};
         }
+        d.members[n] = normalizeMemberData(d.members[n]);
       });
     }
     return d;
@@ -1362,9 +1489,71 @@ function isAdmin(){
     grid.innerHTML = '';
 
     roster.analistas.forEach((name, idx)=>{
-      const m = dayData.members[name] || {prioridade:'',bloqueado:false,bloqueio:''};
+      const m = normalizeMemberData(dayData.members[name] || {itens:[]});
+      dayData.members[name] = m;
+
+      const blockedItems = m.itens.filter(i=>i.bloqueado);
+      const activeItems = m.itens.filter(i=>!i.bloqueado);
       const card = document.createElement('div');
-      card.className = 'card' + (m.bloqueado ? ' blocked':'');
+      card.className = 'card' + (blockedItems.length ? ' blocked':'');
+
+      const activeHtml = activeItems.length
+        ? activeItems.map(item=>`
+            <div class="critical-item">
+              <div class="critical-item-text">${escapeHtml(item.texto)}</div>
+              <div class="critical-actions">
+                <button class="critical-mini block"
+                  data-role="item-block"
+                  data-name="${escapeAttr(name)}"
+                  data-id="${escapeAttr(item.id)}"
+                  type="button">→ Bloqueio</button>
+                <button class="critical-mini remove"
+                  data-role="item-remove"
+                  data-name="${escapeAttr(name)}"
+                  data-id="${escapeAttr(item.id)}"
+                  type="button">✕</button>
+              </div>
+            </div>
+          `).join('')
+        : '<div class="card-hint">Nenhum item crítico adicionado.</div>';
+
+      const blockedHtml = blockedItems.length
+        ? `
+          <div class="block-section">
+            <div class="block-section-head">
+              <span class="block-label">Bloqueios (${blockedItems.length})</span>
+            </div>
+            <div class="blocked-items">
+              ${blockedItems.map(item=>`
+                <div class="blocked-item">
+                  <div class="blocked-item-head">
+                    <div class="blocked-item-title">${escapeHtml(item.texto)}</div>
+                    <div class="critical-actions">
+                      <button class="critical-mini"
+                        data-role="item-unblock"
+                        data-name="${escapeAttr(name)}"
+                        data-id="${escapeAttr(item.id)}"
+                        type="button">Desbloquear</button>
+                      <button class="critical-mini remove"
+                        data-role="item-remove"
+                        data-name="${escapeAttr(name)}"
+                        data-id="${escapeAttr(item.id)}"
+                        type="button">✕</button>
+                    </div>
+                  </div>
+                  <textarea
+                    class="blocked-detail"
+                    rows="2"
+                    placeholder="O que está bloqueando e o que precisa para destravar?"
+                    data-role="item-block-detail"
+                    data-name="${escapeAttr(name)}"
+                    data-id="${escapeAttr(item.id)}"
+                  >${escapeHtml(item.bloqueio)}</textarea>
+                </div>
+              `).join('')}
+            </div>
+          </div>`
+        : '';
 
       card.innerHTML = `
         <div class="card-head">
@@ -1376,41 +1565,28 @@ function isAdmin(){
             ${isAdmin() ? '' : 'readonly'}
             title="${isAdmin() ? 'Administrador pode alterar o nome' : 'Somente administrador pode alterar o nome'}"
           >
-          <div
-            class="status-light ${m.bloqueado?'blocked':''}"
-            data-idx="${idx}"
-            data-role="toggle-block"
-            title="Marcar/desmarcar bloqueio"
-          ></div>
+          <div class="status-light ${blockedItems.length?'blocked':''}"
+            title="${blockedItems.length ? blockedItems.length+' item(ns) bloqueado(s)' : 'Sem bloqueios'}"></div>
         </div>
 
-        <textarea
-          class="prio-field"
-          rows="2"
-          placeholder="Prioridade de hoje..."
-          data-name="${escapeAttr(name)}"
-          data-role="prioridade"
-        >${escapeHtml(m.prioridade)}</textarea>
-
-        <div class="block-section">
-          <div class="block-section-head">
-            <span class="block-label">Bloqueio / necessidade de destravamento</span>
-            <button
-              type="button"
-              class="block-toggle ${m.bloqueado ? 'active' : ''}"
-              data-idx="${idx}"
-              data-role="toggle-block-button"
-            >${m.bloqueado ? 'Bloqueado' : 'Sem bloqueio'}</button>
-          </div>
-
-          <textarea
-            class="block-field"
-            rows="2"
-            placeholder="Se houver bloqueio, descreva aqui o problema e o que precisa para destravar..."
+        <div class="critical-entry">
+          <input
+            type="text"
+            placeholder="Adicionar tema ou item crítico..."
+            data-role="item-new"
             data-name="${escapeAttr(name)}"
-            data-role="bloqueio-desc"
-          >${escapeHtml(m.bloqueio)}</textarea>
+            ${m.itens.length >= 5 ? 'disabled' : ''}
+          >
+          <button class="btn primary small"
+            data-role="item-add"
+            data-name="${escapeAttr(name)}"
+            type="button"
+            ${m.itens.length >= 5 ? 'disabled' : ''}>Adicionar</button>
+          <span class="critical-counter">${m.itens.length}/5</span>
         </div>
+
+        <div class="critical-items">${activeHtml}</div>
+        ${blockedHtml}
       `;
 
       grid.appendChild(card);
@@ -1427,124 +1603,119 @@ function isAdmin(){
         const idx = +e.target.dataset.idx;
         const oldName = roster.analistas[idx];
         const newName = e.target.value.trim() || oldName;
-
         if(newName === oldName) return;
 
         roster.analistas[idx] = newName;
-        dayData.members[newName] =
-          dayData.members[oldName] || {prioridade:'',bloqueado:false,bloqueio:''};
-
+        dayData.members[newName] = normalizeMemberData(dayData.members[oldName] || {itens:[]});
         delete dayData.members[oldName];
 
         await saveRoster();
         await saveDayData();
-        await writeAudit(
-          'Nome de analista alterado',
-          `${oldName} → ${newName}`,
-          'admin'
-        );
+        await writeAudit('Nome de analista alterado', `${oldName} → ${newName}`, 'admin');
 
         renderAnalistas();
         renderOwnerSelect();
       });
     });
 
-    grid.querySelectorAll('[data-role="toggle-block"]').forEach(el=>{
-      el.addEventListener('click', (e)=>{
-        const idx = +e.target.dataset.idx;
-        const name = roster.analistas[idx];
+    function addCritical(name){
+      const input = grid.querySelector(`[data-role="item-new"][data-name="${CSS.escape(name)}"]`);
+      if(!input) return;
+      const text = input.value.trim();
+      if(!text) return;
 
-        dayData.members[name].bloqueado =
-          !dayData.members[name].bloqueado;
+      const m = normalizeMemberData(dayData.members[name]);
+      if(m.itens.length >= 5){
+        showToast('Limite de 5 itens críticos por analista');
+        return;
+      }
 
-        scheduleSave();
-        scheduleAudit(
-          `block:${name}`,
-          dayData.members[name].bloqueado ? 'Bloqueio marcado' : 'Bloqueio removido',
-          name,
-          'bloqueio'
-        );
-
-        renderAnalistas();
+      m.itens.push({
+        id:'i_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+        texto:text,
+        bloqueado:false,
+        bloqueio:''
       });
+      dayData.members[name] = m;
+
+      scheduleSave();
+      writeAudit('Item crítico adicionado', `${name} · ${text}`, 'prioridade');
+      renderAnalistas();
+    }
+
+    grid.querySelectorAll('[data-role="item-add"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>addCritical(btn.dataset.name));
     });
 
-
-    grid.querySelectorAll('[data-role="toggle-block-button"]').forEach(el=>{
-      el.addEventListener('click', (e)=>{
-        const idx = +e.currentTarget.dataset.idx;
-        const name = roster.analistas[idx];
-
-        dayData.members[name].bloqueado =
-          !dayData.members[name].bloqueado;
-
-        scheduleSave();
-        scheduleAudit(
-          `block:${name}`,
-          dayData.members[name].bloqueado ? 'Bloqueio marcado' : 'Bloqueio removido',
-          name,
-          'bloqueio'
-        );
-
-        renderAnalistas();
-      });
-    });
-
-    grid.querySelectorAll('[data-role="prioridade"]').forEach(el=>{
-      el.addEventListener('input', (e)=>{
-        const name = e.target.dataset.name;
-        dayData.members[name].prioridade = e.target.value;
-        scheduleSave();
-        scheduleAudit(
-          `priority:${name}`,
-          'Prioridade atualizada',
-          name,
-          'prioridade'
-        );
-      });
-    });
-
-    grid.querySelectorAll('[data-role="bloqueio-desc"]').forEach(el=>{
-      el.addEventListener('input', (e)=>{
-        const name = e.target.dataset.name;
-        const value = e.target.value;
-        dayData.members[name].bloqueio = value;
-
-        // Ao descrever um bloqueio, marca automaticamente o status como bloqueado.
-        if(value.trim() && !dayData.members[name].bloqueado){
-          dayData.members[name].bloqueado = true;
-
-          const idx = roster.analistas.indexOf(name);
-          const card = e.target.closest('.card');
-          if(card) card.classList.add('blocked');
-
-          const btn = card ? card.querySelector('[data-role="toggle-block-button"]') : null;
-          if(btn){
-            btn.classList.add('active');
-            btn.textContent = 'Bloqueado';
-          }
-
-          const light = card ? card.querySelector('[data-role="toggle-block"]') : null;
-          if(light) light.classList.add('blocked');
-
-          scheduleAudit(
-            `block:${name}`,
-            'Bloqueio marcado',
-            name,
-            'bloqueio'
-          );
+    grid.querySelectorAll('[data-role="item-new"]').forEach(input=>{
+      input.addEventListener('keydown', e=>{
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          addCritical(input.dataset.name);
         }
-
-        scheduleSave();
-        scheduleAudit(
-          `blockdesc:${name}`,
-          'Descrição de bloqueio atualizada',
-          name,
-          'bloqueio'
-        );
-        renderDashboard();
       });
     });
+
+    grid.querySelectorAll('[data-role="item-block"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const name = btn.dataset.name;
+        const m = normalizeMemberData(dayData.members[name]);
+        const item = m.itens.find(i=>i.id===btn.dataset.id);
+        if(!item) return;
+        item.bloqueado = true;
+        dayData.members[name] = m;
+        scheduleSave();
+        writeAudit('Item enviado para bloqueio', `${name} · ${item.texto}`, 'bloqueio');
+        renderAnalistas();
+      });
+    });
+
+    grid.querySelectorAll('[data-role="item-unblock"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const name = btn.dataset.name;
+        const m = normalizeMemberData(dayData.members[name]);
+        const item = m.itens.find(i=>i.id===btn.dataset.id);
+        if(!item) return;
+        item.bloqueado = false;
+        item.bloqueio = '';
+        dayData.members[name] = m;
+        scheduleSave();
+        writeAudit('Item desbloqueado', `${name} · ${item.texto}`, 'bloqueio');
+        renderAnalistas();
+      });
+    });
+
+    grid.querySelectorAll('[data-role="item-remove"]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const name = btn.dataset.name;
+        const m = normalizeMemberData(dayData.members[name]);
+        const item = m.itens.find(i=>i.id===btn.dataset.id);
+        m.itens = m.itens.filter(i=>i.id!==btn.dataset.id);
+        dayData.members[name] = m;
+        scheduleSave();
+        writeAudit('Item crítico removido', `${name} · ${item ? item.texto : ''}`, 'prioridade');
+        renderAnalistas();
+      });
+    });
+
+    grid.querySelectorAll('[data-role="item-block-detail"]').forEach(field=>{
+      field.addEventListener('input', ()=>{
+        const name = field.dataset.name;
+        const m = normalizeMemberData(dayData.members[name]);
+        const item = m.itens.find(i=>i.id===field.dataset.id);
+        if(!item) return;
+        item.bloqueio = field.value;
+        dayData.members[name] = m;
+        scheduleSave();
+        scheduleAudit(
+          `blockdetail:${name}:${item.id}`,
+          'Detalhe de bloqueio atualizado',
+          `${name} · ${item.texto}`,
+          'bloqueio'
+        );
+      });
+    });
+
     renderDashboard();
   }
 
@@ -1788,7 +1959,10 @@ function isAdmin(){
   function renderDashboard(){
     const openPend = pendencias.filter(p=>!p.resolvido);
     const blocked = dayData && dayData.members
-      ? Object.values(dayData.members).filter(m=>m && m.bloqueado).length
+      ? Object.values(dayData.members).reduce((total,m)=>{
+          const mm = normalizeMemberData(m);
+          return total + mm.itens.filter(i=>i.bloqueado).length;
+        },0)
       : 0;
 
     const counts = new Map();
@@ -1865,11 +2039,19 @@ function isAdmin(){
 
       const memberLines = Object.keys(members).length
         ? Object.entries(members).map(([name,m])=>{
-            const prioridade = m && m.prioridade ? escapeHtml(m.prioridade) : '<span class="daily-muted">sem prioridade</span>';
-            const bloqueio = m && m.bloqueado
-              ? ` · <strong>Bloqueio:</strong> ${escapeHtml(m.bloqueio || 'marcado sem descrição')}`
-              : '';
-            return `<div class="daily-line"><strong>${escapeHtml(name)}</strong> — ${prioridade}${bloqueio}</div>`;
+            const mm = normalizeMemberData(m);
+            if(!mm.itens.length){
+              return `<div class="daily-line"><strong>${escapeHtml(name)}</strong> — <span class="daily-muted">sem itens críticos</span></div>`;
+            }
+
+            const itens = mm.itens.map(item=>{
+              const block = item.bloqueado
+                ? ` <strong>[BLOQUEIO]</strong>${item.bloqueio ? ' '+escapeHtml(item.bloqueio) : ''}`
+                : '';
+              return `<div style="margin-top:3px;">• ${escapeHtml(item.texto)}${block}</div>`;
+            }).join('');
+
+            return `<div class="daily-line"><strong>${escapeHtml(name)}</strong>${itens}</div>`;
           }).join('')
         : '<div class="daily-line daily-muted">Snapshot detalhado não disponível para este registro antigo.</div>';
 
@@ -1934,7 +2116,10 @@ function isAdmin(){
       return;
     }
     await saveDayData();
-    const bloqueios = Object.values(dayData.members).filter(m=>m.bloqueado).length;
+    const bloqueios = Object.values(dayData.members).reduce((total,m)=>{
+      const mm = normalizeMemberData(m);
+      return total + mm.itens.filter(i=>i.bloqueado).length;
+    },0);
     const pendenciasAbertas = pendencias.filter(p=>!p.resolvido).length;
     const agora = new Date();
     const existente = history.find(h=>h.date===todayKey());
@@ -1963,13 +2148,16 @@ function isAdmin(){
 
   // ---------- relatório / PDF ----------
   function buildReportHtml(){
-    const bloqueios = dayData && dayData.members
-      ? Object.entries(dayData.members).filter(([_,m])=>m && m.bloqueado)
-      : [];
+    const itensEquipe = [];
+    if(dayData && dayData.members){
+      Object.entries(dayData.members).forEach(([name,m])=>{
+        const mm = normalizeMemberData(m);
+        mm.itens.forEach(item=>itensEquipe.push({name,item}));
+      });
+    }
 
-    const prioridades = dayData && dayData.members
-      ? Object.entries(dayData.members)
-      : [];
+    const bloqueios = itensEquipe.filter(x=>x.item.bloqueado);
+    const prioridades = itensEquipe;
 
     const openPend = pendencias.filter(p=>!p.resolvido);
     const resolvedPend = pendencias.filter(p=>p.resolvido);
@@ -1980,14 +2168,16 @@ function isAdmin(){
       weekday:'long',day:'2-digit',month:'long',year:'numeric'
     });
 
-    const prioritiesRows = prioridades.map(([name,m])=>`
-      <tr>
-        <td>${safe(name)}</td>
-        <td>${safe((m && m.prioridade) || '-')}</td>
-        <td>${m && m.bloqueado ? 'SIM' : 'NÃO'}</td>
-        <td>${safe((m && m.bloqueio) || '-')}</td>
-      </tr>
-    `).join('');
+    const prioritiesRows = prioridades.length
+      ? prioridades.map(({name,item})=>`
+          <tr>
+            <td>${safe(name)}</td>
+            <td>${safe(item.texto || '-')}</td>
+            <td>${item.bloqueado ? 'SIM' : 'NÃO'}</td>
+            <td>${safe(item.bloqueio || '-')}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="4">Nenhum item crítico registrado.</td></tr>';
 
     const pendRows = openPend.length
       ? openPend.map(p=>`
@@ -2040,9 +2230,9 @@ function isAdmin(){
     <div class="kpi"><span>Usuário</span><b style="font-size:10px;">${safe(auth.currentUser?.email || '-')}</b></div>
   </div>
 
-  <h2>Equipe — prioridades e bloqueios</h2>
+  <h2>Equipe — itens críticos e bloqueios</h2>
   <table>
-    <thead><tr><th>Responsável</th><th>Prioridade</th><th>Bloqueio</th><th>Descrição</th></tr></thead>
+    <thead><tr><th>Responsável</th><th>Item crítico</th><th>Bloqueio</th><th>Detalhe do bloqueio</th></tr></thead>
     <tbody>${prioritiesRows}</tbody>
   </table>
 
