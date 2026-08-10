@@ -661,6 +661,49 @@
     flex-wrap:wrap;
   }
 
+
+  /* ---- Bloqueio visível por analista ---- */
+  .block-section{
+    margin-top:2px;
+    padding-top:8px;
+    border-top:1px solid rgba(255,255,255,.05);
+  }
+  .block-section-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    margin-bottom:6px;
+  }
+  .block-label{
+    font-size:10.5px;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  .block-toggle{
+    border:1px solid var(--border);
+    background:var(--panel-alt);
+    color:var(--text-dim);
+    border-radius:999px;
+    padding:4px 9px;
+    font-size:10px;
+    cursor:pointer;
+  }
+  .block-toggle.active{
+    border-color:var(--danger);
+    color:#ff9a96;
+    background:rgba(217,83,79,.10);
+  }
+  .block-field{
+    display:block !important;
+    min-height:42px;
+    border-color:var(--border);
+  }
+  .card.blocked .block-field{
+    border-color:rgba(217,83,79,.75);
+  }
+
 </style>
 </head>
 <body>
@@ -1349,13 +1392,25 @@ function isAdmin(){
           data-role="prioridade"
         >${escapeHtml(m.prioridade)}</textarea>
 
-        <textarea
-          class="block-field ${m.bloqueado?'show':''}"
-          rows="2"
-          placeholder="Qual o bloqueio? O que precisa para destravar?"
-          data-name="${escapeAttr(name)}"
-          data-role="bloqueio-desc"
-        >${escapeHtml(m.bloqueio)}</textarea>
+        <div class="block-section">
+          <div class="block-section-head">
+            <span class="block-label">Bloqueio / necessidade de destravamento</span>
+            <button
+              type="button"
+              class="block-toggle ${m.bloqueado ? 'active' : ''}"
+              data-idx="${idx}"
+              data-role="toggle-block-button"
+            >${m.bloqueado ? 'Bloqueado' : 'Sem bloqueio'}</button>
+          </div>
+
+          <textarea
+            class="block-field"
+            rows="2"
+            placeholder="Se houver bloqueio, descreva aqui o problema e o que precisa para destravar..."
+            data-name="${escapeAttr(name)}"
+            data-role="bloqueio-desc"
+          >${escapeHtml(m.bloqueio)}</textarea>
+        </div>
       `;
 
       grid.appendChild(card);
@@ -1414,6 +1469,27 @@ function isAdmin(){
       });
     });
 
+
+    grid.querySelectorAll('[data-role="toggle-block-button"]').forEach(el=>{
+      el.addEventListener('click', (e)=>{
+        const idx = +e.currentTarget.dataset.idx;
+        const name = roster.analistas[idx];
+
+        dayData.members[name].bloqueado =
+          !dayData.members[name].bloqueado;
+
+        scheduleSave();
+        scheduleAudit(
+          `block:${name}`,
+          dayData.members[name].bloqueado ? 'Bloqueio marcado' : 'Bloqueio removido',
+          name,
+          'bloqueio'
+        );
+
+        renderAnalistas();
+      });
+    });
+
     grid.querySelectorAll('[data-role="prioridade"]').forEach(el=>{
       el.addEventListener('input', (e)=>{
         const name = e.target.dataset.name;
@@ -1431,7 +1507,34 @@ function isAdmin(){
     grid.querySelectorAll('[data-role="bloqueio-desc"]').forEach(el=>{
       el.addEventListener('input', (e)=>{
         const name = e.target.dataset.name;
-        dayData.members[name].bloqueio = e.target.value;
+        const value = e.target.value;
+        dayData.members[name].bloqueio = value;
+
+        // Ao descrever um bloqueio, marca automaticamente o status como bloqueado.
+        if(value.trim() && !dayData.members[name].bloqueado){
+          dayData.members[name].bloqueado = true;
+
+          const idx = roster.analistas.indexOf(name);
+          const card = e.target.closest('.card');
+          if(card) card.classList.add('blocked');
+
+          const btn = card ? card.querySelector('[data-role="toggle-block-button"]') : null;
+          if(btn){
+            btn.classList.add('active');
+            btn.textContent = 'Bloqueado';
+          }
+
+          const light = card ? card.querySelector('[data-role="toggle-block"]') : null;
+          if(light) light.classList.add('blocked');
+
+          scheduleAudit(
+            `block:${name}`,
+            'Bloqueio marcado',
+            name,
+            'bloqueio'
+          );
+        }
+
         scheduleSave();
         scheduleAudit(
           `blockdesc:${name}`,
@@ -1439,6 +1542,7 @@ function isAdmin(){
           name,
           'bloqueio'
         );
+        renderDashboard();
       });
     });
     renderDashboard();
