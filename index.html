@@ -520,6 +520,147 @@
     padding:10px 2px;
   }
 
+
+  /* ---- Dashboard executivo ---- */
+  .dash-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:10px;
+    margin-top:10px;
+  }
+  @media(max-width:850px){.dash-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:520px){.dash-grid{grid-template-columns:1fr;}}
+  .dash-card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+  .dash-label{
+    font-size:10.5px;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  .dash-value{
+    margin-top:5px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:25px;
+    font-weight:700;
+    color:var(--text);
+  }
+  .dash-sub{
+    margin-top:3px;
+    font-size:10.5px;
+    color:var(--text-dim);
+  }
+  .dash-panels{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:10px;
+  }
+  @media(max-width:760px){.dash-panels{grid-template-columns:1fr;}}
+  .dash-panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+  }
+  .dash-panel-title{
+    font-family:'Oswald',sans-serif;
+    text-transform:uppercase;
+    font-size:13px;
+    letter-spacing:.06em;
+    color:var(--steel);
+    margin-bottom:8px;
+  }
+  .dash-row{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:7px 0;
+    border-bottom:1px solid rgba(255,255,255,.05);
+    font-size:12px;
+  }
+  .dash-row:last-child{border-bottom:none;}
+  .dash-row .count{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--text-dim);
+  }
+
+  /* ---- Histórico diário ---- */
+  .daily-history{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    margin-top:10px;
+  }
+  .daily-entry{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .daily-entry summary{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    color:var(--text);
+    margin:0;
+  }
+  .daily-entry summary::-webkit-details-marker{display:none;}
+  .daily-date{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--steel);
+  }
+  .daily-summary{
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .daily-body{
+    border-top:1px solid var(--border);
+    padding:12px;
+  }
+  .daily-columns{
+    display:grid;
+    grid-template-columns:1.25fr 1fr;
+    gap:12px;
+  }
+  @media(max-width:760px){.daily-columns{grid-template-columns:1fr;}}
+  .daily-block{
+    background:var(--panel-alt);
+    border:1px solid var(--border);
+    border-radius:7px;
+    padding:10px;
+  }
+  .daily-block-title{
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--text-dim);
+    margin-bottom:7px;
+  }
+  .daily-line{
+    font-size:11.5px;
+    padding:5px 0;
+    border-bottom:1px solid rgba(255,255,255,.04);
+  }
+  .daily-line:last-child{border-bottom:none;}
+  .daily-line strong{color:var(--text);}
+  .daily-muted{color:var(--text-dim);}
+
+  /* ---- Relatório ---- */
+  .report-actions{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+
 </style>
 </head>
 <body>
@@ -586,7 +727,48 @@
   <div class="section-title">EDI — dados e demandas</div>
   <div class="grid" id="ediGrid"></div>
 
-  <div class="section-title">Pendências em aberto</div>
+  
+  <div class="section-title">Dashboard — recorrências e pendências</div>
+
+  <div class="dash-grid">
+    <div class="dash-card">
+      <div class="dash-label">Pendências abertas</div>
+      <div class="dash-value" id="dashPendOpen">0</div>
+      <div class="dash-sub">situação atual</div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-label">Bloqueios hoje</div>
+      <div class="dash-value" id="dashBlocked">0</div>
+      <div class="dash-sub">equipe atendimento</div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-label">Recorrências</div>
+      <div class="dash-value" id="dashRecurring">0</div>
+      <div class="dash-sub">pendências repetidas ≥ 2x</div>
+    </div>
+
+    <div class="dash-card">
+      <div class="dash-label">Reuniões registradas</div>
+      <div class="dash-value" id="dashMeetings">0</div>
+      <div class="dash-sub">histórico disponível</div>
+    </div>
+  </div>
+
+  <div class="dash-panels">
+    <div class="dash-panel">
+      <div class="dash-panel-title">Pendências recorrentes</div>
+      <div id="dashRecurrenceList"></div>
+    </div>
+
+    <div class="dash-panel">
+      <div class="dash-panel-title">Pendências abertas por responsável</div>
+      <div id="dashOwnerList"></div>
+    </div>
+  </div>
+
+<div class="section-title">Pendências em aberto</div>
   <div class="pend-list" id="pendList"></div>
   <div class="add-pend-row">
     <input type="text" id="newPendText" placeholder="Nova pendência (ex: cliente X aguardando retorno sobre NF)">
@@ -595,13 +777,16 @@
   </div>
 
 <div class="footer-actions">
-    <button class="btn primary" id="closeMeetingBtn">Encerrar reunião de hoje</button>
+    <div class="report-actions">
+      <button class="btn primary" id="closeMeetingBtn">Encerrar reunião de hoje</button>
+      <button class="btn" id="reportBtn" type="button">Relatório / PDF</button>
+    </div>
     <span class="status-note" id="saveStatus">pronto</span>
   </div>
 
-  <details style="margin-top:24px;">
-    <summary>Histórico de reuniões</summary>
-    <div class="history-list" id="historyList"></div>
+  <details style="margin-top:24px;" open>
+    <summary>Histórico diário</summary>
+    <div class="daily-history" id="historyList"></div>
   </details>
 
   <details style="margin-top:12px;" open>
@@ -1256,6 +1441,7 @@ function isAdmin(){
         );
       });
     });
+    renderDashboard();
   }
 
   // ---------- render: EDI card ----------
@@ -1433,6 +1619,7 @@ function isAdmin(){
         renderPendencias();
       });
     });
+    renderDashboard();
   }
 
   document.getElementById('addPendBtn').addEventListener('click', async ()=>{
@@ -1454,6 +1641,7 @@ function isAdmin(){
     input.value = '';
 
     await savePendencias();
+    renderDashboard();
     await writeAudit(
       'Pendência adicionada',
       `${texto}${owner.value ? ' · Responsável: '+owner.value : ''}`,
@@ -1464,22 +1652,175 @@ function isAdmin(){
     showToast('Pendência adicionada');
   });
 
+  // ---------- dashboard ----------
+  function normalizeText(value){
+    return (value || '')
+      .toString()
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g,'')
+      .replace(/\s+/g,' ');
+  }
+
+  function allHistoricalPendingTexts(){
+    const texts = [];
+
+    pendencias.forEach(p=>{
+      if(p && p.texto) texts.push(p.texto);
+    });
+
+    history.forEach(h=>{
+      const snap = h.snapshot || {};
+      const ps = Array.isArray(snap.pendencias) ? snap.pendencias : [];
+      ps.forEach(p=>{
+        if(p && p.texto) texts.push(p.texto);
+      });
+    });
+
+    return texts;
+  }
+
+  function renderDashboard(){
+    const openPend = pendencias.filter(p=>!p.resolvido);
+    const blocked = dayData && dayData.members
+      ? Object.values(dayData.members).filter(m=>m && m.bloqueado).length
+      : 0;
+
+    const counts = new Map();
+    allHistoricalPendingTexts().forEach(text=>{
+      const key = normalizeText(text);
+      if(!key) return;
+      const current = counts.get(key) || {count:0,label:text};
+      current.count++;
+      if(text.length > current.label.length) current.label = text;
+      counts.set(key,current);
+    });
+
+    const recurrent = [...counts.values()]
+      .filter(x=>x.count >= 2)
+      .sort((a,b)=>b.count-a.count || a.label.localeCompare(b.label));
+
+    const owners = new Map();
+    openPend.forEach(p=>{
+      const owner = p.responsavel || 'Sem responsável';
+      owners.set(owner, (owners.get(owner)||0)+1);
+    });
+    const ownerRows = [...owners.entries()].sort((a,b)=>b[1]-a[1] || a[0].localeCompare(b[0]));
+
+    const setText = (id,value)=>{
+      const el = document.getElementById(id);
+      if(el) el.textContent = value;
+    };
+
+    setText('dashPendOpen', openPend.length);
+    setText('dashBlocked', blocked);
+    setText('dashRecurring', recurrent.length);
+    setText('dashMeetings', history.length);
+
+    const recList = document.getElementById('dashRecurrenceList');
+    if(recList){
+      recList.innerHTML = recurrent.length
+        ? recurrent.slice(0,5).map(x=>`
+            <div class="dash-row">
+              <span>${escapeHtml(x.label)}</span>
+              <span class="count">${x.count}x</span>
+            </div>
+          `).join('')
+        : '<div class="empty-hint">Sem recorrências identificadas.</div>';
+    }
+
+    const ownerList = document.getElementById('dashOwnerList');
+    if(ownerList){
+      ownerList.innerHTML = ownerRows.length
+        ? ownerRows.map(([owner,count])=>`
+            <div class="dash-row">
+              <span>${escapeHtml(owner)}</span>
+              <span class="count">${count}</span>
+            </div>
+          `).join('')
+        : '<div class="empty-hint">Nenhuma pendência em aberto.</div>';
+    }
+  }
+
   // ---------- history ----------
   function renderHistory(){
     const list = document.getElementById('historyList');
+
     if(history.length === 0){
       list.innerHTML = '<div class="empty-hint">Nenhuma reunião encerrada ainda.</div>';
+      renderDashboard();
       return;
     }
-    list.innerHTML = history.slice().reverse().map(h=>`
-      <div class="history-item">
-        <div class="history-main">
-          <span class="history-date">${escapeHtml(h.date || '')}</span>
-          <span class="history-meta">${h.closedBy ? 'Encerrada por '+escapeHtml(h.closedBy) : 'Responsável não registrado'}${h.closedAt ? ' · '+escapeHtml(h.closedAt) : ''}</span>
-        </div>
-        <span>${h.bloqueios||0} bloqueio(s) · ${h.pendenciasAbertas ?? '-'} pendência(s) aberta(s)</span>
-      </div>
-    `).join('');
+
+    list.innerHTML = history.slice().reverse().map(h=>{
+      const snap = h.snapshot || {};
+      const members = snap.members || {};
+      const edi = snap.edi || {};
+      const ps = Array.isArray(snap.pendencias) ? snap.pendencias : [];
+
+      const memberLines = Object.keys(members).length
+        ? Object.entries(members).map(([name,m])=>{
+            const prioridade = m && m.prioridade ? escapeHtml(m.prioridade) : '<span class="daily-muted">sem prioridade</span>';
+            const bloqueio = m && m.bloqueado
+              ? ` · <strong>Bloqueio:</strong> ${escapeHtml(m.bloqueio || 'marcado sem descrição')}`
+              : '';
+            return `<div class="daily-line"><strong>${escapeHtml(name)}</strong> — ${prioridade}${bloqueio}</div>`;
+          }).join('')
+        : '<div class="daily-line daily-muted">Snapshot detalhado não disponível para este registro antigo.</div>';
+
+      const ediLines = `
+        <div class="daily-line"><strong>EDIs:</strong> ${escapeHtml(String(edi.recebidos ?? '-'))}</div>
+        <div class="daily-line"><strong>PCP:</strong> ${escapeHtml(edi.pcp || '-')}</div>
+        <div class="daily-line"><strong>Expedição:</strong> ${escapeHtml(edi.expedicao || '-')}</div>
+        <div class="daily-line"><strong>Atendimento:</strong> ${escapeHtml(edi.atendimento || '-')}</div>
+      `;
+
+      const pendLines = ps.length
+        ? ps.map(p=>`
+            <div class="daily-line">
+              <strong>${escapeHtml(p.texto || '')}</strong>
+              ${p.responsavel ? ' · '+escapeHtml(p.responsavel) : ''}
+              ${p.resolvido ? ' · resolvida' : ' · aberta'}
+            </div>
+          `).join('')
+        : '<div class="daily-line daily-muted">Nenhuma pendência armazenada no snapshot.</div>';
+
+      return `
+        <details class="daily-entry">
+          <summary>
+            <div>
+              <div class="daily-date">${escapeHtml(h.date || '')}</div>
+              <div class="daily-summary">${h.closedBy ? 'Encerrada por '+escapeHtml(h.closedBy) : 'Responsável não registrado'}${h.closedAt ? ' · '+escapeHtml(h.closedAt) : ''}</div>
+            </div>
+            <div class="daily-summary">${h.bloqueios||0} bloqueio(s) · ${h.pendenciasAbertas ?? '-'} pendência(s) aberta(s)</div>
+          </summary>
+
+          <div class="daily-body">
+            <div class="daily-columns">
+              <div class="daily-block">
+                <div class="daily-block-title">Equipe — prioridades e bloqueios</div>
+                ${memberLines}
+              </div>
+
+              <div>
+                <div class="daily-block">
+                  <div class="daily-block-title">EDI — fechamento do dia</div>
+                  ${ediLines}
+                </div>
+
+                <div class="daily-block" style="margin-top:10px;">
+                  <div class="daily-block-title">Pendências no fechamento</div>
+                  ${pendLines}
+                </div>
+              </div>
+            </div>
+          </div>
+        </details>
+      `;
+    }).join('');
+
+    renderDashboard();
   }
 
   // ---------- close meeting ----------
@@ -1498,7 +1839,12 @@ function isAdmin(){
       bloqueios,
       pendenciasAbertas,
       closedBy: auth.currentUser ? auth.currentUser.email : '',
-      closedAt: agora.toLocaleString('pt-BR')
+      closedAt: agora.toLocaleString('pt-BR'),
+      snapshot: {
+        members: JSON.parse(JSON.stringify(dayData.members || {})),
+        edi: JSON.parse(JSON.stringify(dayData.edi || {})),
+        pendencias: JSON.parse(JSON.stringify(pendencias || []))
+      }
     };
     if(existente){
       Object.assign(existente, registro);
@@ -1509,6 +1855,127 @@ function isAdmin(){
     await writeAudit('Reunião encerrada', `${bloqueios} bloqueio(s) · ${pendenciasAbertas} pendência(s) aberta(s)`, 'admin');
     renderHistory();
     showToast('Reunião de hoje encerrada e registrada ✓');
+  });
+
+  // ---------- relatório / PDF ----------
+  function buildReportHtml(){
+    const bloqueios = dayData && dayData.members
+      ? Object.entries(dayData.members).filter(([_,m])=>m && m.bloqueado)
+      : [];
+
+    const prioridades = dayData && dayData.members
+      ? Object.entries(dayData.members)
+      : [];
+
+    const openPend = pendencias.filter(p=>!p.resolvido);
+    const resolvedPend = pendencias.filter(p=>p.resolvido);
+
+    const safe = escapeHtml;
+    const logoTitle = 'REUNIÃO DO BOM DIA';
+    const dateLabel = new Date().toLocaleDateString('pt-BR',{
+      weekday:'long',day:'2-digit',month:'long',year:'numeric'
+    });
+
+    const prioritiesRows = prioridades.map(([name,m])=>`
+      <tr>
+        <td>${safe(name)}</td>
+        <td>${safe((m && m.prioridade) || '-')}</td>
+        <td>${m && m.bloqueado ? 'SIM' : 'NÃO'}</td>
+        <td>${safe((m && m.bloqueio) || '-')}</td>
+      </tr>
+    `).join('');
+
+    const pendRows = openPend.length
+      ? openPend.map(p=>`
+          <tr>
+            <td>${safe(p.texto || '')}</td>
+            <td>${safe(p.responsavel || 'Sem responsável')}</td>
+            <td>${safe(p.criadoEm || '')}</td>
+          </tr>
+        `).join('')
+      : '<tr><td colspan="3">Nenhuma pendência em aberto.</td></tr>';
+
+    return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Relatório - Reunião do Bom Dia</title>
+<style>
+  @page{size:A4;margin:14mm;}
+  *{box-sizing:border-box;}
+  body{font-family:Arial,Helvetica,sans-serif;color:#20262d;margin:0;font-size:11px;}
+  .header{border-bottom:3px solid #ed8a2b;padding-bottom:10px;margin-bottom:14px;}
+  .eyebrow{font-size:9px;font-weight:700;letter-spacing:.12em;color:#ed8a2b;text-transform:uppercase;}
+  h1{font-size:22px;margin:4px 0 2px;text-transform:uppercase;}
+  .muted{color:#68727c;}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0;}
+  .kpi{border:1px solid #ccd2d8;border-radius:6px;padding:9px;}
+  .kpi b{font-size:20px;display:block;}
+  h2{font-size:12px;text-transform:uppercase;margin:16px 0 7px;color:#426b83;}
+  table{width:100%;border-collapse:collapse;}
+  th,td{border:1px solid #d8dde2;padding:6px;text-align:left;vertical-align:top;}
+  th{background:#eef1f4;font-size:9px;text-transform:uppercase;}
+  .footer{margin-top:18px;padding-top:8px;border-top:1px solid #d8dde2;color:#68727c;font-size:9px;}
+  .no-print{margin-bottom:10px;}
+  @media print{.no-print{display:none;}}
+</style>
+</head>
+<body>
+  <div class="no-print"><button onclick="window.print()">Imprimir / Salvar em PDF</button></div>
+
+  <div class="header">
+    <div class="eyebrow">Atendimento &amp; Logística</div>
+    <h1>${logoTitle}</h1>
+    <div class="muted">${safe(dateLabel)}</div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><span>Pendências abertas</span><b>${openPend.length}</b></div>
+    <div class="kpi"><span>Bloqueios</span><b>${bloqueios.length}</b></div>
+    <div class="kpi"><span>EDIs recebidos</span><b>${safe(String(dayData?.edi?.recebidos || 0))}</b></div>
+    <div class="kpi"><span>Usuário</span><b style="font-size:10px;">${safe(auth.currentUser?.email || '-')}</b></div>
+  </div>
+
+  <h2>Equipe — prioridades e bloqueios</h2>
+  <table>
+    <thead><tr><th>Responsável</th><th>Prioridade</th><th>Bloqueio</th><th>Descrição</th></tr></thead>
+    <tbody>${prioritiesRows}</tbody>
+  </table>
+
+  <h2>EDI — dados e demandas</h2>
+  <table>
+    <tbody>
+      <tr><th>Responsável EDI</th><td>${safe(roster?.edi || '-')}</td></tr>
+      <tr><th>EDIs recebidos</th><td>${safe(String(dayData?.edi?.recebidos || '-'))}</td></tr>
+      <tr><th>Demandas PCP</th><td>${safe(dayData?.edi?.pcp || '-')}</td></tr>
+      <tr><th>Demandas Expedição</th><td>${safe(dayData?.edi?.expedicao || '-')}</td></tr>
+      <tr><th>Demandas Atendimento</th><td>${safe(dayData?.edi?.atendimento || '-')}</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Pendências em aberto</h2>
+  <table>
+    <thead><tr><th>Pendência</th><th>Responsável</th><th>Desde</th></tr></thead>
+    <tbody>${pendRows}</tbody>
+  </table>
+
+  <div class="footer">
+    Gerado em ${safe(new Date().toLocaleString('pt-BR'))} ·
+    ${resolvedPend.length} pendência(s) resolvida(s) registrada(s) na base atual.
+  </div>
+</body>
+</html>`;
+  }
+
+  document.getElementById('reportBtn').addEventListener('click', ()=>{
+    const w = window.open('', '_blank', 'width=1100,height=800');
+    if(!w){
+      showToast('Permita pop-ups para gerar o relatório');
+      return;
+    }
+    w.document.open();
+    w.document.write(buildReportHtml());
+    w.document.close();
   });
 
   // ---------- utils ----------
@@ -1529,6 +1996,7 @@ function isAdmin(){
     renderOwnerSelect();
     renderPendencias();
     renderHistory();
+    renderDashboard();
     setSaveStatus('pronto');
   }
   // ---------- authentication ----------
